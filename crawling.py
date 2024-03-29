@@ -146,6 +146,38 @@ class QUASAR_ZONE(PAGES):
         
     def crawling(self):
         driver = self.set_drvier(self.hot_deal_page)
+        item_names = []
+        item_links = []
+        shopping_mall_links = []
+        shopping_malls = []
+        prices = []
+        deliveries = []
+        contents = []
+        comments = []
+
+        for i in range(1, 31):
+            item = driver.find_element(By.CSS_SELECTOR, f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child() > td:nth-child(2) > div > div.market-info-list-cont > p > a")
+            item_links.append(item.get_attribute("href"))
+            shopping_mall = re.match("\[[^\[\]]+\]", item.text)
+            if not shopping_mall: # shopping_mall 태그가 없는 경우
+                shopping_malls.append("")
+            else:
+                shopping_malls.append(shopping_mall[0][1:-1])
+        
+        for i in item_links:
+            driver.get(i)
+            table = driver.find_element(By.TAG_NAME, "table")
+            rows = table.find_elements(By.TAG_NAME, "tr")
+            details = [row.text for row in rows]
+            print(details)
+            # shopping_mall_link, shopping_mall, item_name, price, delivery, content, *comment = details
+            # shopping_mall_links.append(shopping_mall_link.text)
+            # shopping_malls.append(shopping_mall.text)
+            # item_names.append(item_name)
+            # prices.append(price.text)
+            # deliveries.append(delivery.text)
+            # contents.append(content.text)
+            # comments.append(list(map(lambda x: x.text, comment)))
         # TBD
         
 class PPOM_PPU(PAGES):
