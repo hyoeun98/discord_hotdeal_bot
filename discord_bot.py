@@ -10,7 +10,8 @@ client = discord.Client(intents=intents)
 @client.event
 async def on_ready():
     print(f'We have logged in as {client.user}')
-
+    # kafka subcribe
+    # await message.channel.send('Hello!')
 @client.event
 async def on_message(message):
     if message.author == client.user:
