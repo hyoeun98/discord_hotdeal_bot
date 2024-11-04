@@ -1,33 +1,4 @@
-version: '0.1'
-
 services:
-  zookeeper-1:
-    image: zookeeper:latest
-    ports:
-      - "2181:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_SERVER_ID: 1
-      ZOOKEEPER_SERVERS: zookeeper-1:2888:3888;zookeeper-2:2888:3888;zookeeper-3:2888:3888
-
-  zookeeper-2:
-    image: zookeeper:latest
-    ports:
-      - "2182:2182"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2182
-      ZOOKEEPER_SERVER_ID: 2
-      ZOOKEEPER_SERVERS: zookeeper-1:2888:3888;zookeeper-2:2888:3888;zookeeper-3:2888:3888
-
-  zookeeper-3:
-    image: zookeeper:latest
-    ports:
-      - "2183:2183"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2183
-      ZOOKEEPER_SERVER_ID: 3
-      ZOOKEEPER_SERVERS: zookeeper-1:2888:3888;zoozookeeper-2:2888:3888;zookeeper-3:2888:3888
-
   kafka-1:
     image: apache/kafka:latest
     hostname: kafka-1
@@ -49,11 +20,6 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
-
-    depends_on:
-      - zookeeper-1
-      - zookeeper-2
-      - zookeeper-3
 
   kafka-2:
     image: apache/kafka:latest
@@ -77,11 +43,6 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
 
-    depends_on:
-      - zookeeper-1
-      - zookeeper-2
-      - zookeeper-3
-
   kafka-3:
     image: apache/kafka:latest
     hostname: kafka-3
@@ -103,10 +64,6 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
-    depends_on:
-      - zookeeper-1
-      - zookeeper-2
-      - zookeeper-3
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
