@@ -12,7 +12,7 @@ import json
 
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-
+import logging
 import re
 import random
 import time
@@ -25,43 +25,18 @@ import os
 import base64
 import requests
 from scanner import PAGES, SITES
+
 load_dotenv()
 
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
 SLACK_CHANNEL_ID = os.environ.get("SLACK_CHANNEL_ID")
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
-DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 DB_NAME = os.environ.get("DB_NAME")
 DB_USER = os.environ.get("DB_USER")
 DB_PASSWORD = os.environ.get("DB_PASSWORD")
 DB_HOST = os.environ.get("DB_HOST")
 DB_PORT = os.environ.get("DB_PORT")
-
-connection = psycopg2.connect(
-    dbname = DB_NAME,
-    user = DB_USER,
-    password = DB_PASSWORD,
-    host = DB_HOST,
-    port = DB_PORT
-)
-cursor = connection.cursor()
-client = WebClient(token=SLACK_TOKEN)
-
-crawling_error_insert_query = sql.SQL("""
-    INSERT INTO crawling_error (site_name_idx, error_log, timestamp, item_link)
-    VALUES (%s, %s, %s, %s)
-""")
-
-consumer = KafkaConsumer(
-    'test', # 토픽명
-    bootstrap_servers=['localhost:29092', 'localhost:39092', 'localhost:49092'], # 카프카 브로커 주소 리스트
-    auto_offset_reset='earliest', # 오프셋 위치(earliest:가장 처음, latest: 가장 최근)
-    enable_auto_commit=True, # 오프셋 자동 커밋 여부
-    group_id = "discord_bot",
-    value_deserializer=lambda x: json.loads(x.decode('utf-8')), # 메시지의 값 역직렬화,
-    key_deserializer=lambda x: json.loads(x.decode('utf-8')), # 키의 값 역직렬화
-)
 
 def set_driver():
     chrome_options = Options()
@@ -89,9 +64,9 @@ class Crawler:
 
         # 응답 확인
         if response.status_code == 204:
-            print("Message insert", kwargs["item_link"])
+            logging.info(f"Message insert, {kwargs['item_link']}")
         else:
-            print(f"Failed to send message: {response.status_code}, {response.text} {kwargs['item_link']}")
+            logging.error(f"Failed to send message: {response.status_code}, {response.text} {kwargs['item_link']}")
             
     def error_logging(self, e: Exception, error_type, item_link, **kwargs):
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # 현재 시간을 포맷팅
@@ -105,30 +80,30 @@ class Crawler:
         
         try:
             with open(screenshot_filename, 'rb') as file:
-                response = client.files_upload_v2(
+                response = crawler_client.files_upload_v2(
                     channel=SLACK_CHANNEL_ID,
                     file=file,
                     filename=os.path.basename(screenshot_filename),  # 파일 이름
                     initial_comment=error_log  # 업로드할 때 이미지 제목
                 )
-            print(f"File uploaded successfully: {response['file']['permalink']}")
+            logging.info(f"File uploaded successfully: {response['file']['permalink']}")
         except SlackApiError as e:
-            print(f"Error uploading file: {e.response['error']}")
+            logging.error(f"Error uploading file: {e.response['error']}")
         
         try:
-            cursor.execute(crawling_error_insert_query, (self.__class__.__name__, str(error_log), timestamp, item_link))
-            connection.commit()
+            crawler_cursor.execute(crawling_error_insert_query, (self.__class__.__name__, str(error_log), timestamp, item_link))
+            crawler_connection.commit()
         except Exception as e:
-            print(e)
-            connection.rollback()
+            logging.info(e)
+            crawler_connection.rollback()
     
     def consume_pages(self):
         for message in consumer:
             page = message.key
             item_link = message.value
-            self.send_discord(page = page, item_link = item_link)
+            # self.send_discord(page = page, item_link = item_link)
             self.crawling(page, item_link)
-
+            
     def crawling(self, page, item_link):
         if page not in SITES:
             raise TypeError("Invalid page name")
@@ -146,12 +121,56 @@ class Crawler:
             self.error_logging(e, f"fail crawling {item_link}", item_link)
             
         try:
-            cursor.execute(crawling_result_insert_query, value)
-            connection.commit()
-            print("success insert", item_link)
+            crawler_cursor.execute(crawling_result_insert_query, value)
+            crawler_connection.commit()
+            logging.info(f"success insert {item_link}")
         except Exception as e:
-            connection.rollback()
+            crawler_connection.rollback()
             self.error_logging(e, f"fail insert{item_link}", item_link)
             
-crawler = Crawler()
-crawler.consume_pages()
+        transformed_message = f'''
+- {result["item_name"]}
+- 원본 링크: {item_link}
+- 구매 링크: {result["shopping_mall_link"]}
+- By: {page}
+'''
+        producer.send(topic = 'transformed_message', value=transformed_message)
+        
+if __name__ == "__main__":
+    crawler_connection = psycopg2.connect(
+    dbname = DB_NAME,
+    user = DB_USER,
+    password = DB_PASSWORD,
+    host = DB_HOST,
+    port = DB_PORT
+    )
+    crawler_cursor = crawler_connection.cursor()
+    crawler_client = WebClient(token=SLACK_TOKEN)
+
+    crawling_error_insert_query = sql.SQL("""
+        INSERT INTO crawling_error (site_name_idx, error_log, timestamp, item_link)
+        VALUES (%s, %s, %s, %s)
+    """)
+
+    consumer = KafkaConsumer(
+        'test', # 토픽명
+        bootstrap_servers=['localhost:29092', 'localhost:39092', 'localhost:49092'], # 카프카 브로커 주소 리스트
+        auto_offset_reset='earliest', # 오프셋 위치(earliest:가장 처음, latest: 가장 최근)
+        enable_auto_commit=True, # 오프셋 자동 커밋 여부
+        group_id = "discord_bot",
+        value_deserializer=lambda x: json.loads(x.decode('utf-8')), # 메시지의 값 역직렬화,
+        key_deserializer=lambda x: json.loads(x.decode('utf-8')), # 키의 값 역직렬화
+    )
+    
+    producer = KafkaProducer(
+        acks=0, # 메시지 전송 완료에 대한 체크
+        compression_type='gzip', # 메시지 전달할 때 압축(None, gzip, snappy, lz4 등)
+        bootstrap_servers=['localhost:29092', 'localhost:39092', 'localhost:49092'], # 전달하고자 하는 카프카 브로커의 주소 리스트
+        value_serializer=lambda x:json.dumps(x, default=str).encode('utf-8'), # 메시지의 값 직렬화
+        key_serializer=lambda x:json.dumps(x, default=str).encode('utf-8') # 키의 값 직렬화
+    )
+    
+    logging.basicConfig(filename='crawler.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.info("Start Crawling")
+    crawler = Crawler()
+    crawler.consume_pages()

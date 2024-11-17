@@ -14,6 +14,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from selenium.webdriver.remote.errorhandler import WebDriverException
 
+import logging
 import re
 import random
 import time
@@ -27,6 +28,7 @@ import base64
 import requests
 
 load_dotenv()
+
 
 ARCA_LIVE_LINK = "https://arca.live/b/hotdeal"
 RULI_WEB_LINK = "https://bbs.ruliweb.com/market/board/1020?view=default"
@@ -45,35 +47,6 @@ SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
 SLACK_CHANNEL_ID = os.environ.get("SLACK_CHANNEL_ID")
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
-
-connection = psycopg2.connect(
-    dbname = DB_NAME,
-    user = DB_USER,
-    password = DB_PASSWORD,
-    host = DB_HOST,
-    port = DB_PORT
-)
-cursor = connection.cursor()
-
-page_insert_query = sql.SQL("""
-    INSERT INTO pages (site_name_idx, item_link)
-    VALUES (%s, %s)
-""")
-
-error_insert_query = sql.SQL("""
-    INSERT INTO error (site_name_idx, error_log, timestamp)
-    VALUES (%s, %s, %s)
-""")
-
-client = WebClient(token=SLACK_TOKEN)
-
-producer = KafkaProducer(
-    acks=0, # 메시지 전송 완료에 대한 체크
-    compression_type='gzip', # 메시지 전달할 때 압축(None, gzip, snappy, lz4 등)
-    bootstrap_servers=['localhost:29092', 'localhost:39092', 'localhost:49092'], # 전달하고자 하는 카프카 브로커의 주소 리스트
-    value_serializer=lambda x:json.dumps(x, default=str).encode('utf-8'), # 메시지의 값 직렬화
-    key_serializer=lambda x:json.dumps(x, default=str).encode('utf-8') # 키의 값 직렬화
-)
 
 def set_driver():
     chrome_options = Options()
@@ -116,15 +89,15 @@ class PAGES:
             cursor.execute("SELECT EXISTS(SELECT 1 FROM pages WHERE item_link = %s)", (item_link,))
             exists = cursor.fetchone()[0]
         except Exception as e:
-            print(e)
+            logging.info(e)
             
         if not exists:
             try:
-                print((self.__class__.__name__, item_link))
+                logging.info((self.__class__.__name__, item_link))
                 cursor.execute(page_insert_query, (self.__class__.__name__, item_link))
                 connection.commit()
             except Exception as e:
-                print(e)
+                logging.info(e)
                 connection.rollback()
             producer.send(topic = 'test', key = self.__class__.__name__, value=item_link)
             producer.flush()
@@ -138,7 +111,7 @@ class PAGES:
         if kwargs:
             for k, v in kwargs:
                 error_log[k] = v
-        print(error_log)
+        logging.info(error_log)
         
         try:
             with open(screenshot_filename, 'rb') as file:
@@ -148,15 +121,15 @@ class PAGES:
                     filename=os.path.basename(screenshot_filename),  # 파일 이름
                     initial_comment=error_log  # 업로드할 때 이미지 제목
                 )
-            print(f"File uploaded successfully: {response['file']['permalink']}")
+            logging.info(f"File uploaded successfully: {response['file']['permalink']}")
         except SlackApiError as e:
-            print(f"Error uploading file: {e.response['error']}")
+            logging.info(f"Error uploading file: {e.response['error']}")
         
         try:
             cursor.execute(error_insert_query, (self.__class__.__name__, str(error_log), timestamp))
             connection.commit()
         except Exception as e:
-            print(e)
+            logging.info(e)
             connection.rollback()
             
 class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, delivery, content, comment
@@ -165,7 +138,6 @@ class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, d
         super().__init__(pathfinder)
         
     def get_item_links(self):
-        print("get_item_links", self.site_name)
         get_item_driver = self.driver
         get_item_driver.get(self.site_name)
         for i in range(4, 48):
@@ -174,7 +146,6 @@ class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, d
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
-                print(i, item_link)
             except Exception as e:
                 self.error_logging(e, f"fail get item links {find_css_selector}")
                 
@@ -191,7 +162,7 @@ class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, d
             comment = list(map(lambda x: x.text, comment_box.find_elements(By.CLASS_NAME, "text")))
             created_at = driver.find_element(By.CSS_SELECTOR, "body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-wrapper > div.article-head > div.info-row > div.article-info.article-info-section > span:nth-child(12) > span.body > time").text
         except Exception as e:
-            print("crawling error", item_link)
+            logging.info("crawling error", item_link)
         
         result = {
             "created_at" : created_at,
@@ -211,7 +182,6 @@ class RULI_WEB(PAGES): # shopping_mall_link, item_name, content, comment
         super().__init__(pathfinder)
     
     def get_item_links(self):
-        print("get_item_links", self.site_name)
         get_item_driver = self.driver
         get_item_driver.get(self.site_name)
         item_table = get_item_driver.find_elements(By.CSS_SELECTOR, "#board_list > div > div.board_main.theme_default.theme_white.theme_white > table > tbody > tr")
@@ -220,7 +190,6 @@ class RULI_WEB(PAGES): # shopping_mall_link, item_name, content, comment
                 if item.get_attribute("class") == "table_body blocktarget":
                     item_link = item.find_element(By.CSS_SELECTOR, "td.subject > div > a.deco").get_attribute("href")
                     self.pub_hot_deal_page(item_link)
-                    print(i, item_link)
                 else: # 공지, best 핫딜 등
                     continue
                 
@@ -243,7 +212,7 @@ class RULI_WEB(PAGES): # shopping_mall_link, item_name, content, comment
                 pattern = r'https?://[^\s]+'
                 links = re.findall(pattern, content)
                 shopping_mall_link = links[-1]
-            print("crawling error", item_link)
+            logging.info("crawling error", item_link)
             
         result = {
             "created_at" : created_at,
@@ -262,7 +231,6 @@ class FM_KOREA(PAGES): # shopping_mall_link, shopping_mall, item_name, price, de
         super().__init__(pathfinder)
     
     def get_item_links(self):
-        print("get_item_links", self.site_name)
         get_item_driver = self.driver
         get_item_driver.get(self.site_name)
         for i in range(1, 21):
@@ -271,7 +239,6 @@ class FM_KOREA(PAGES): # shopping_mall_link, shopping_mall, item_name, price, de
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
-                print(i, item_link)
             except Exception as e:
                 self.error_logging(e, f"fail get item links {find_css_selector}")
     
@@ -285,7 +252,7 @@ class FM_KOREA(PAGES): # shopping_mall_link, shopping_mall, item_name, price, de
             comment = list(map(lambda x: x.text, comment))
             created_at = driver.find_element(By.CSS_SELECTOR, "#bd_capture > div.rd_hd.clear > div.board.clear > div.top_area.ngeb > span").text
         except Exception as e:
-            print("crawling error", item_link)
+            logging.info("crawling error", item_link)
         
         result = {
             "created_at" : created_at,
@@ -304,7 +271,6 @@ class QUASAR_ZONE(PAGES):
         super().__init__(pathfinder)
         
     def get_item_links(self):
-        print("get_item_links", self.site_name)
         get_item_driver = self.driver
         get_item_driver.get(self.site_name)
         for i in range(1, 31):
@@ -313,7 +279,6 @@ class QUASAR_ZONE(PAGES):
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
-                print(i, item_link)
             except Exception as e:
                 self.error_logging(e, f"fail get item links {find_css_selector}")
                 
@@ -332,7 +297,7 @@ class QUASAR_ZONE(PAGES):
             details = [row.text for row in rows]
             shopping_mall_link, shopping_mall, price, delivery, *_ = list(map(lambda x: "".join(x.split()[1:]), details))
         except Exception as e:
-            print("crawling error", item_link)
+            logging.info("crawling error", item_link)
         
         result = {
             "created_at" : created_at,
@@ -353,7 +318,6 @@ class PPOM_PPU(PAGES):
         super().__init__(pathfinder)
         
     def get_item_links(self):
-        print("get_item_links", self.site_name)
         get_item_driver = self.driver
         get_item_driver.get(self.site_name)
         for i in range(8, 28):#revolution_main_table > tbody > tr:nth-child(33)
@@ -362,7 +326,6 @@ class PPOM_PPU(PAGES):
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
-                print(i - 8, item_link)
             except Exception as e:
                 self.error_logging(e, f"fail get item links {find_css_selector}")
             
@@ -383,7 +346,7 @@ class PPOM_PPU(PAGES):
             shopping_mall_link = driver.find_element(By.CSS_SELECTOR, "#topTitle > div > ul > li.topTitle-link > a").text
             shopping_mall = driver.find_element(By.CSS_SELECTOR, "#topTitle > h1 > span.subject_preface.type2").text
         except Exception as e:
-            print("crawling error", item_link)
+            logging.error("crawling error", item_link)
             
         result = {
             "created_at" : created_at,
@@ -405,6 +368,37 @@ SITES = {
 }
 
 if __name__ == "__main__":
+    logging.basicConfig(filename='scanner.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.info("Start Scanning")
+    connection = psycopg2.connect(
+    dbname = DB_NAME,
+    user = DB_USER,
+    password = DB_PASSWORD,
+    host = DB_HOST,
+    port = DB_PORT
+    )
+    cursor = connection.cursor()
+
+    page_insert_query = sql.SQL("""
+        INSERT INTO pages (site_name_idx, item_link)
+        VALUES (%s, %s)
+    """)
+
+    error_insert_query = sql.SQL("""
+        INSERT INTO error (site_name_idx, error_log, timestamp)
+        VALUES (%s, %s, %s)
+    """)
+
+    client = WebClient(token=SLACK_TOKEN)
+
+    producer = KafkaProducer(
+        acks=0, # 메시지 전송 완료에 대한 체크
+        compression_type='gzip', # 메시지 전달할 때 압축(None, gzip, snappy, lz4 등)
+        bootstrap_servers=['localhost:29092', 'localhost:39092', 'localhost:49092'], # 전달하고자 하는 카프카 브로커의 주소 리스트
+        value_serializer=lambda x:json.dumps(x, default=str).encode('utf-8'), # 메시지의 값 직렬화
+        key_serializer=lambda x:json.dumps(x, default=str).encode('utf-8') # 키의 값 직렬화
+    )
+
     pathfinder = PathFinder()
     quasar_zone = QUASAR_ZONE(pathfinder)
     ppom_ppu = PPOM_PPU(pathfinder)
@@ -416,29 +410,48 @@ if __name__ == "__main__":
         try:
             current = time.time()
             quasar_zone.get_item_links()
-            print(time.time() - current)
+            logging.info(f" quasar zone {time.time() - current}")
             time.sleep(5)
             
             current = time.time()
             ppom_ppu.get_item_links()
-            print(time.time() - current)
+            logging.info(f" ppomppu {time.time() - current}")
             time.sleep(5)
             
             current = time.time()
             fm_korea.get_item_links()
-            print(time.time() - current)
+            logging.info(f" fm korea {time.time() - current}")
             time.sleep(5)
             
             current = time.time()
             ruli_web.get_item_links()
-            print(time.time() - current)
+            logging.info(f" ruliweb {time.time() - current}")
             time.sleep(5)
             
             current = time.time()
             arca_live.get_item_links()
-            print(time.time() - current)
+            logging.info(f" arca live {time.time() - current}")
             time.sleep(5)
             
         except WebDriverException as e:
-            print("webdriver exception", e, datetime.now())
+            logging.error(f"webdriver exception {e}")
             time.sleep(5)
+            
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # 현재 시간을 포맷팅
+            error_log = {"error_log": e, "time": timestamp, "error_type": "while error"}
+            screenshot_filename = f'error_screenshot/while error_{timestamp}.png'
+            PAGES.save_full_screenshot(pathfinder.driver, screenshot_filename)
+            logging.error(error_log)
+            
+            try:
+                with open(screenshot_filename, 'rb') as file:
+                    response = client.files_upload_v2(
+                        channel=SLACK_CHANNEL_ID,
+                        file=file,
+                        filename=os.path.basename(screenshot_filename),  # 파일 이름
+                        initial_comment=error_log  # 업로드할 때 이미지 제목
+                    )
+                logging.info(f"File uploaded successfully: {response['file']['permalink']}")
+            except SlackApiError as e:
+                logging.error(f"Error uploading file: {e.response['error']}")
+            pathfinder.driver.refresh()
