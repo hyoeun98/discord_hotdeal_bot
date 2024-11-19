@@ -187,7 +187,68 @@ class ChannelManager:
                 return cur.fetchone()
         finally:
             conn.close()
-
+            
+    def add_keyword(self, channel_id, keyword):
+        conn = self.get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT keyword FROM channel_keyword WHERE channel_id = %s AND keyword = %s", (channel_id, keyword))
+                exist = cur.fetchone()
+                
+                if exist:
+                    return f"{keyword}는 이미 등록된 키워드입니다."
+                else:
+                    cur.execute("INSERT INTO channel_keyword (channel_id, keyword) VALUES (%s, %s)", (channel_id, keyword))
+                    conn.commit()
+                    return f"{keyword} 키워드 등록 완료."
+                
+        except Exception as e:
+            logging.error(f"키워드 등록 중 오류 발생: {e}")
+            return (f"키워드 등록 중 오류가 발생했습니다: {e}")
+        
+        finally:
+            conn.close()
+            
+    def del_keyword(self, channel_id, keyword):
+        conn = self.get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT keyword FROM channel_keyword WHERE channel_id = %s AND keyword = %s", (channel_id, keyword))
+                exist = cur.fetchone()
+                
+                if not exist:
+                    return f"{keyword}는 등록되지 않은 키워드입니다."
+                else:
+                    cur.execute("DELETE FROM channel_keyword WHERE channel_id = %s AND keyword = %s", (channel_id, keyword))
+                    conn.commit()
+                    return f"{keyword} 키워드 삭제 완료."
+                
+        except Exception as e:
+            logging.error(f"키워드 삭제 중 오류 발생: {e}")
+            return (f"키워드 삭제 중 오류가 발생했습니다: {e}")
+        
+        finally:
+            conn.close()
+    
+    def get_keyword(self, channel_id):
+        conn = self.get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT keyword FROM channel_keyword WHERE channel_id = %s", (channel_id,))
+                keywords = cur.fetchall()
+                if not keywords:
+                    return f"등록된 키워드가 없습니다."
+                else:
+                    keyword_list = ', '.join(keyword[0] for keyword in keywords)
+                    return f"등록된 키워드 : {keyword_list}"
+                
+        except Exception as e:
+            logging.error(f"키워드 조회 중 오류 발생: {e}")
+            return (f"키워드 조회 중 오류가 발생했습니다: {e}")
+        
+        finally:
+            conn.close()
+            
 # Discord bot 초기화
 intents = discord.Intents.default()
 intents.message_content = True
@@ -201,6 +262,24 @@ async def on_ready():
     # Kafka consumer 시작
     threading.Thread(target=run_kafka_consumer, daemon=True).start()
 
+@bot.command()
+async def add_keyword(ctx, *, keyword):
+    """알람 keyword 등록"""
+    result = channel_manager.add_keyword(ctx.channel.id, keyword)
+    await ctx.send(result)
+
+@bot.command()
+async def del_keyword(ctx, *, keyword):
+    """알람 keyword 삭제"""
+    result = channel_manager.del_keyword(ctx.channel.id, keyword)
+    await ctx.send(result)
+    
+@bot.command()
+async def get_keyword(ctx):
+    """알람 keyword 삭제"""
+    result = channel_manager.get_keyword(ctx.channel.id)
+    await ctx.send(result)
+    
 @bot.command()
 async def register(ctx):
     """현재 채널을 등록"""
@@ -217,6 +296,19 @@ async def register(ctx):
         await ctx.send(f'채널이 등록되었습니다: {channel.name}')
     else:
         await ctx.send('채널 등록에 실패했습니다.')
+        
+    threads = channel.threads
+    thread_exists = any(thread.name == "keyword" for thread in threads)
+    
+    if not thread_exists:
+        new_thread = await channel.create_thread(
+            name = "keyword",
+            auto_archive_duration = 0
+        )
+        await new_thread.send(f"keyword thread 생성")
+    
+    else:
+        await ctx.send(f"keyword thread가 이미 존재합니다.")
 
 @bot.command()
 async def unregister(ctx):
@@ -273,13 +365,14 @@ def run_kafka_consumer():
     )
     
     for message in consumer:
+        status = message.key
         discord_message = message.value
         logging.info(f"Kafka 메시지 수신: {discord_message}")
-        
-        asyncio.run_coroutine_threadsafe(
-            send_message_to_channels(discord_message),
-            bot.loop
-        )
+        if status == "success":
+            asyncio.run_coroutine_threadsafe(
+                send_message_to_channels(discord_message),
+                bot.loop
+            )
 
 def main():
     """메인 함수"""

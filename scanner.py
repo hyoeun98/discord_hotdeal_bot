@@ -60,6 +60,52 @@ def set_driver():
     driver.implicitly_wait(5)
     return driver
 
+def save_full_screenshot(driver, screenshot_filename):
+    page_rect = driver.execute_cdp_cmd('Page.getLayoutMetrics', {})
+    screenshot_config = {'captureBeyondViewport': True,
+                            'fromSurface': True,
+                            'clip': {'width': page_rect['cssContentSize']['width'],
+                                    'height': page_rect['cssContentSize']['height'], #contentSize -> cssContentSize
+                                    'x': 0,
+                                    'y': 0,
+                                    'scale': 1},
+                            }
+    base_64_png = driver.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)
+    with open(screenshot_filename, "wb") as fh:
+        fh.write(base64.urlsafe_b64decode(base_64_png['data']))
+        
+def error_logging(class_name, driver, e: Exception, error_type, **kwargs):
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # 현재 시간을 포맷팅
+    error_log = {"error_log": e, "time": timestamp, "error_type": error_type}
+    screenshot_filename = f'error_screenshot/{class_name}_{timestamp}.png'
+    save_full_screenshot(driver, screenshot_filename)
+    
+    if kwargs:
+        for k, v in kwargs:
+            error_log[k] = v
+    logging.info(error_log)
+    
+    try:
+        with open(screenshot_filename, 'rb') as file:
+            response = client.files_upload_v2(
+                channel=SLACK_CHANNEL_ID,
+                file=file,
+                filename=os.path.basename(screenshot_filename),  # 파일 이름
+                initial_comment=error_log  # 업로드할 때 이미지 제목
+            )
+        logging.info(f"File uploaded successfully: {response['file']['permalink']}")
+    except SlackApiError as e:
+        logging.info(f"Error uploading file: {e.response['error']}")
+    
+    try:
+        cursor.execute(error_insert_query, (class_name, str(error_log), timestamp))
+        logging.info(f"Table error insert complete")
+        connection.commit()
+    except Exception as e:
+        logging.info(e)
+        logging.info(f"Table error insert fail")
+        connection.rollback()
+        
 class PathFinder:
     def __init__(self):
         self.driver = set_driver()
@@ -68,21 +114,6 @@ class PAGES:
     def __init__(self, pathfinder):
         self.refresh_delay = 60 # sec
         self.driver = pathfinder.driver
-    
-    @staticmethod
-    def save_full_screenshot(driver, screenshot_filename):
-        page_rect = driver.execute_cdp_cmd('Page.getLayoutMetrics', {})
-        screenshot_config = {'captureBeyondViewport': True,
-                             'fromSurface': True,
-                             'clip': {'width': page_rect['cssContentSize']['width'],
-                                      'height': page_rect['cssContentSize']['height'], #contentSize -> cssContentSize
-                                      'x': 0,
-                                      'y': 0,
-                                      'scale': 1},
-                             }
-        base_64_png = driver.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)
-        with open(screenshot_filename, "wb") as fh:
-            fh.write(base64.urlsafe_b64decode(base_64_png['data']))
             
     def pub_hot_deal_page(self, item_link): # crawling 할 page를 publish
         try:
@@ -101,36 +132,6 @@ class PAGES:
                 connection.rollback()
             producer.send(topic = 'test', key = self.__class__.__name__, value=item_link)
             producer.flush()
-    
-    def error_logging(self, e: Exception, error_type, **kwargs):
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # 현재 시간을 포맷팅
-        error_log = {"error_log": e, "time": timestamp, "error_type": error_type}
-        screenshot_filename = f'error_screenshot/{self.__class__.__name__}_{timestamp}.png'
-        self.save_full_screenshot(self.driver, screenshot_filename)
-        
-        if kwargs:
-            for k, v in kwargs:
-                error_log[k] = v
-        logging.info(error_log)
-        
-        try:
-            with open(screenshot_filename, 'rb') as file:
-                response = client.files_upload_v2(
-                    channel=SLACK_CHANNEL_ID,
-                    file=file,
-                    filename=os.path.basename(screenshot_filename),  # 파일 이름
-                    initial_comment=error_log  # 업로드할 때 이미지 제목
-                )
-            logging.info(f"File uploaded successfully: {response['file']['permalink']}")
-        except SlackApiError as e:
-            logging.info(f"Error uploading file: {e.response['error']}")
-        
-        try:
-            cursor.execute(error_insert_query, (self.__class__.__name__, str(error_log), timestamp))
-            connection.commit()
-        except Exception as e:
-            logging.info(e)
-            connection.rollback()
             
 class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, delivery, content, comment
     def __init__(self, pathfinder):
@@ -147,12 +148,13 @@ class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, d
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
-                self.error_logging(e, f"fail get item links {find_css_selector}")
+                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}")
                 
     @staticmethod
     def crawling(driver, item_link):
         driver.get(item_link)
         try: # 신고 처리, 보안 검사 등
+            created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment = "err", "err", "err", "err", "err", "err", "err", "err"
             table = driver.find_element(By.TAG_NAME, "table")
             rows = table.find_elements(By.TAG_NAME, "tr")
             details = [row.text for row in rows]
@@ -162,18 +164,20 @@ class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, d
             comment = list(map(lambda x: x.text, comment_box.find_elements(By.CLASS_NAME, "text")))
             created_at = driver.find_element(By.CSS_SELECTOR, "body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-wrapper > div.article-head > div.info-row > div.article-info.article-info-section > span:nth-child(12) > span.body > time").text
         except Exception as e:
-            logging.info("crawling error", item_link)
-        
-        result = {
-            "created_at" : created_at,
-            "item_link" : item_link,
-            "shopping_mall_link" : shopping_mall_link,
-            "shopping_mall" : shopping_mall,
-            "price" : price,
-            "item_name" : item_name,
-            "delivery" : delivery      
-        }
-        return result
+            error_logging("ARCA_LIVE", driver, e, f"crawling error, {item_link}")
+            
+        finally:
+            result = {
+                "created_at" : created_at,
+                "item_link" : item_link,
+                "shopping_mall_link" : shopping_mall_link,
+                "shopping_mall" : shopping_mall,
+                "price" : price,
+                "item_name" : item_name,
+                "delivery" : delivery,
+                "content" : content
+            }
+            return result
 
 # shopping_mall_link가 누락된 채로 게시글이 올라옴
 class RULI_WEB(PAGES): # shopping_mall_link, item_name, content, comment
@@ -184,7 +188,8 @@ class RULI_WEB(PAGES): # shopping_mall_link, item_name, content, comment
     def get_item_links(self):
         get_item_driver = self.driver
         get_item_driver.get(self.site_name)
-        item_table = get_item_driver.find_elements(By.CSS_SELECTOR, "#board_list > div > div.board_main.theme_default.theme_white.theme_white > table > tbody > tr")
+        find_css_selector = "#board_list > div > div.board_main.theme_default.theme_white.theme_white > table > tbody > tr"
+        item_table = get_item_driver.find_elements(By.CSS_SELECTOR, find_css_selector)
         for i, item in enumerate(item_table):
             try:
                 if item.get_attribute("class") == "table_body blocktarget":
@@ -194,13 +199,13 @@ class RULI_WEB(PAGES): # shopping_mall_link, item_name, content, comment
                     continue
                 
             except Exception as e:
-                self.error_logging(e, f"fail get item links {item}")
+                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}")
     
     @staticmethod
     def crawling(driver, item_link):
         driver.get(item_link)
         try: # 신고 처리, 보안 검사 등
-            shopping_mall_link = ""
+            created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment = "err", "err", "err", "err", "err", "err", "err", "err"
             item_name = driver.find_element(By.CSS_SELECTOR, "#board_read > div > div.board_main > div.board_main_top > div.user_view > div:nth-child(1) > div > div > h4 > span > span.subject_inner_text").text
             shopping_mall = re.findall(r"\[.+\]", item_name)[0]
             created_at = driver.find_element(By.CSS_SELECTOR, "#board_read > div > div.board_main > div.board_main_top > div.user_view > div.row.user_view_target > div.col.user_info_wrapper > div > p:nth-child(6) > span").text
@@ -212,18 +217,20 @@ class RULI_WEB(PAGES): # shopping_mall_link, item_name, content, comment
                 pattern = r'https?://[^\s]+'
                 links = re.findall(pattern, content)
                 shopping_mall_link = links[-1]
-            logging.info("crawling error", item_link)
+            error_logging("RULI_WEB", driver, e, f"crawling error, {item_link}")
             
-        result = {
-            "created_at" : created_at,
-            "item_link" : item_link,
-            "shopping_mall_link" : shopping_mall_link,
-            "shopping_mall" : shopping_mall,
-            "price" : "",
-            "item_name" : item_name,
-            "delivery" : ""
-        }
-        return result
+        finally:
+            result = {
+                "created_at" : created_at,
+                "item_link" : item_link,
+                "shopping_mall_link" : shopping_mall_link,
+                "shopping_mall" : shopping_mall,
+                "price" : price,
+                "item_name" : item_name,
+                "delivery" : delivery,
+                "content" : content
+            }
+            return result
         
 class FM_KOREA(PAGES): # shopping_mall_link, shopping_mall, item_name, price, delivery, content, comment
     def __init__(self, pathfinder):
@@ -240,30 +247,33 @@ class FM_KOREA(PAGES): # shopping_mall_link, shopping_mall, item_name, price, de
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
-                self.error_logging(e, f"fail get item links {find_css_selector}")
+                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}")
     
     @staticmethod
     def crawling(driver, item_link):
         driver.get(item_link)
         try: # 신고 처리, 보안 검사 등
+            created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment = "err", "err", "err", "err", "err", "err", "err", "err"
             details = driver.find_elements(By.CLASS_NAME, "xe_content")
             shopping_mall_link, shopping_mall, item_name, price, delivery, content, *comment = details
             shopping_mall_link, shopping_mall, item_name, price, delivery, content = map(lambda x: x.text, (shopping_mall_link, shopping_mall, item_name, price, delivery, content))
             comment = list(map(lambda x: x.text, comment))
             created_at = driver.find_element(By.CSS_SELECTOR, "#bd_capture > div.rd_hd.clear > div.board.clear > div.top_area.ngeb > span").text
         except Exception as e:
-            logging.info("crawling error", item_link)
-        
-        result = {
-            "created_at" : created_at,
-            "item_link" : item_link,
-            "shopping_mall_link" : shopping_mall_link,
-            "shopping_mall" : shopping_mall,
-            "price" : price,
-            "item_name" : item_name,
-            "delivery" : delivery      
-        }
-        return result
+            error_logging("FM_KOREA", driver, e, f"crawling error, {item_link}")
+            
+        finally:
+            result = {
+                "created_at" : created_at,
+                "item_link" : item_link,
+                "shopping_mall_link" : shopping_mall_link,
+                "shopping_mall" : shopping_mall,
+                "price" : price,
+                "item_name" : item_name,
+                "delivery" : delivery,
+                "content" : content
+            }
+            return result
         
 class QUASAR_ZONE(PAGES):
     def __init__(self, pathfinder):
@@ -280,13 +290,13 @@ class QUASAR_ZONE(PAGES):
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
-                self.error_logging(e, f"fail get item links {find_css_selector}")
+                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}")
                 
     @staticmethod
     def crawling(driver, item_link):
         driver.get(item_link)
         try: # 신고 처리, 보안 검사 등
-            item_name, shopping_mall_link, shopping_mall, price, delivery = "", "", "", "", ""
+            created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment = "err", "err", "err", "err", "err", "err", "err", "err"
             item_name = driver.find_element(By.CSS_SELECTOR, "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dt > div:nth-child(1) > h1").text.split()[2:]
             item_name = " ".join(item_name)
             table = driver.find_element(By.TAG_NAME, "table")
@@ -296,19 +306,22 @@ class QUASAR_ZONE(PAGES):
             comment = list(map(lambda x: x.text, driver.find_elements(By.CSS_SELECTOR, "#content > div.sub-content-wrap > div.left-con-wrap > div.reply-wrap > div.reply-area > div.reply-list")))
             details = [row.text for row in rows]
             shopping_mall_link, shopping_mall, price, delivery, *_ = list(map(lambda x: "".join(x.split()[1:]), details))
+            
         except Exception as e:
-            logging.info("crawling error", item_link)
-        
-        result = {
-            "created_at" : created_at,
-            "item_link" : item_link,
-            "shopping_mall_link" : shopping_mall_link,
-            "shopping_mall" : shopping_mall,
-            "price" : price,
-            "item_name" : item_name,
-            "delivery" : delivery      
-        }
-        return result
+            error_logging("QUASAR_ZONE", driver, e, f"crawling error, {item_link}")
+            
+        finally:
+            result = {
+                "created_at" : created_at,
+                "item_link" : item_link,
+                "shopping_mall_link" : shopping_mall_link,
+                "shopping_mall" : shopping_mall,
+                "price" : price,
+                "item_name" : item_name,
+                "delivery" : delivery,
+                "content" : content
+            }
+            return result
 
         
 # shopping_mall이 tag되지 않은 채로 올라옴
@@ -327,7 +340,7 @@ class PPOM_PPU(PAGES):
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
-                self.error_logging(e, f"fail get item links {find_css_selector}")
+                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}")
             
     @staticmethod
     def crawling(driver, item_link):
@@ -339,25 +352,29 @@ class PPOM_PPU(PAGES):
             # comments = driver.find_element(By.ID, "quote").text
             # shopping_mall_link = driver.find_element(By.CSS_SELECTOR, "body > div.wrapper > div.contents > div.container > div > table:nth-child(9) > tbody > tr:nth-child(3) > td > table > tbody > tr > td:nth-child(5) > div > div.sub-top-text-box > div > a").get_attribute("href")
             # shopping_mall = driver.find_element(By.CSS_SELECTOR, "body > div.wrapper > div.contents > div.container > div > table:nth-child(9) > tbody > tr:nth-child(3) > td > table > tbody > tr > td:nth-child(5) > div > div.sub-top-text-box > font.view_title2 > span").text
+            created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment = "err", "err", "err", "err", "err", "err", "err", "err"
             item_name = driver.find_element(By.CSS_SELECTOR, "#topTitle > h1").text
             content = driver.find_element(By.CSS_SELECTOR, "body > div.wrapper > div.contents > div.container > div > table:nth-child(14) > tbody > tr:nth-child(1) > td > table > tbody > tr > td").text
-            comments = driver.find_element(By.ID, "quote").text
+            comment = driver.find_element(By.ID, "quote").text
             created_at = driver.find_element(By.CSS_SELECTOR, "#topTitle > div > ul > li:nth-child(2)").text.lstrip("등록일 ")
             shopping_mall_link = driver.find_element(By.CSS_SELECTOR, "#topTitle > div > ul > li.topTitle-link > a").text
             shopping_mall = driver.find_element(By.CSS_SELECTOR, "#topTitle > h1 > span.subject_preface.type2").text
-        except Exception as e:
-            logging.error("crawling error", item_link)
             
-        result = {
-            "created_at" : created_at,
-            "item_link" : item_link,
-            "shopping_mall_link" : shopping_mall_link,
-            "shopping_mall" : shopping_mall,
-            "price" : "",
-            "item_name" : item_name,
-            "delivery" : ""
-        }
-        return result
+        except Exception as e:
+            error_logging("PPOM_PPU", driver, e, f"crawling error, {item_link}")
+            
+        finally:
+            result = {
+                "created_at" : created_at,
+                "item_link" : item_link,
+                "shopping_mall_link" : shopping_mall_link,
+                "shopping_mall" : shopping_mall,
+                "price" : price,
+                "item_name" : item_name,
+                "delivery" : delivery,
+                "content" : content
+            }
+            return result
 
 SITES = {
     "ARCA_LIVE" : ARCA_LIVE,
@@ -440,7 +457,7 @@ if __name__ == "__main__":
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # 현재 시간을 포맷팅
             error_log = {"error_log": e, "time": timestamp, "error_type": "while error"}
             screenshot_filename = f'error_screenshot/while error_{timestamp}.png'
-            PAGES.save_full_screenshot(pathfinder.driver, screenshot_filename)
+            save_full_screenshot(pathfinder.driver, screenshot_filename)
             logging.error(error_log)
             
             try:

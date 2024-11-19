@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 import os
 import base64
 import requests
-from scanner import PAGES, SITES
+from scanner import PAGES, SITES, save_full_screenshot
 
 load_dotenv()
 
@@ -68,11 +68,11 @@ class Crawler:
         else:
             logging.error(f"Failed to send message: {response.status_code}, {response.text} {kwargs['item_link']}")
             
-    def error_logging(self, e: Exception, error_type, item_link, **kwargs):
+    def crawling_error_logging(self, e: Exception, error_type, item_link, **kwargs):
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # 현재 시간을 포맷팅
         error_log = {"error_log": e, "time": timestamp, "error_type": error_type}
         screenshot_filename = f'error_screenshot/{self.__class__.__name__}_{timestamp}.png'
-        PAGES.save_full_screenshot(self.driver, screenshot_filename)
+        save_full_screenshot(self.driver, screenshot_filename)
         
         if kwargs:
             for k, v in kwargs:
@@ -101,6 +101,7 @@ class Crawler:
         for message in consumer:
             page = message.key
             item_link = message.value
+            logging.info(item_link)
             # self.send_discord(page = page, item_link = item_link)
             self.crawling(page, item_link)
             
@@ -118,7 +119,7 @@ class Crawler:
             result = SITES[page].crawling(self.driver, item_link)
             value = (result["created_at"], result["item_name"], item_link, result["shopping_mall"], result["shopping_mall_link"], result["price"], result["delivery"])
         except Exception as e:
-            self.error_logging(e, f"fail crawling {item_link}", item_link)
+            self.crawling_error_logging(e, f"fail crawling {item_link}", item_link)
             
         try:
             crawler_cursor.execute(crawling_result_insert_query, value)
@@ -126,15 +127,16 @@ class Crawler:
             logging.info(f"success insert {item_link}")
         except Exception as e:
             crawler_connection.rollback()
-            self.error_logging(e, f"fail insert{item_link}", item_link)
+            self.crawling_error_logging(e, f"fail insert {item_link}", item_link)
             
         transformed_message = f'''
 - {result["item_name"]}
 - 원본 링크: {item_link}
 - 구매 링크: {result["shopping_mall_link"]}
+- content: {result["content"]}
 - By: {page}
 '''
-        producer.send(topic = 'transformed_message', value=transformed_message)
+        producer.send(topic = 'transformed_message', value=transformed_message, key = "fail" if result["item_name"] == "err" else "success")
         
 if __name__ == "__main__":
     crawler_connection = psycopg2.connect(
@@ -172,5 +174,6 @@ if __name__ == "__main__":
     
     logging.basicConfig(filename='crawler.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logging.info("Start Crawling")
+    
     crawler = Crawler()
     crawler.consume_pages()
