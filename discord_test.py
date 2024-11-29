@@ -1,4 +1,5 @@
 
+import pytz
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver import Keys, ActionChains
@@ -26,6 +27,7 @@ import base64
 import requests
 from scanner import PAGES, SITES
 import discord
+from discord import app_commands
 from discord.ext import commands
 import asyncio
 import threading
@@ -253,7 +255,7 @@ class ChannelManager:
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix='/', intents=intents)
 channel_manager = ChannelManager()
 
 @bot.event
@@ -261,6 +263,18 @@ async def on_ready():
     logging.info(f'{bot.user} 로 로그인했습니다!')
     # Kafka consumer 시작
     threading.Thread(target=run_kafka_consumer, daemon=True).start()
+    
+@bot.event
+async def on_guild_join(guild):
+    # 봇이 새로운 서버에 초대되었을 때
+    channel = guild.system_channel  # 시스템 채널을 가져옵니다.
+    
+    # 시스템 채널이 존재하는 경우 안내 메시지를 보냅니다.
+    if channel is not None:
+        await channel.send(
+            f"- 등록 : /register
+            - 해제 : /unregister"
+        )
 
 @bot.command()
 async def add_keyword(ctx, *, keyword):
@@ -280,7 +294,7 @@ async def get_keyword(ctx):
     result = channel_manager.get_keyword(ctx.channel.id)
     await ctx.send(result)
     
-@bot.command()
+@bot.command(name="register", description="이 채널에 핫딜정보를 출력합니다.")
 async def register(ctx):
     """현재 채널을 등록"""
     channel = ctx.channel
@@ -334,6 +348,15 @@ async def stats(ctx):
 ''')
     else:
         await ctx.send('채널 통계를 찾을 수 없습니다.')
+        
+def transform_message(message):
+    content = message["content"]
+    content = re.sub(r"\n+", "\n", content.strip())
+    embed = discord.Embed(title=f"{message['item_name']}", description=f"{message['site']}", timestamp=datetime.now(pytz.timezone("UTC")))
+    embed.add_field(name="원문 링크", value=message["item_link"], inline=True)
+    embed.add_field(name="구매 링크", value=message["shopping_mall_link"], inline=True)
+    embed.add_field(name="본문", value=content, inline=False)
+    return embed
 
 async def send_message_to_channels(message_content):
     """등록된 채널에 메시지 전송"""
@@ -343,7 +366,8 @@ async def send_message_to_channels(message_content):
         channel = bot.get_channel(channel_id)
         if channel:
             try:
-                await channel.send(message_content)
+                embed = transform_message(message_content)
+                await channel.send(embed=embed)
                 channel_manager.log_message(channel_id, message_content, 'success')
                 logging.info(f'메시지 전송 성공: {channel.guild.name}/{channel.name}')
             except Exception as e:

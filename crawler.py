@@ -9,7 +9,7 @@ from selenium.webdriver.chrome.options import Options
 from kafka import KafkaConsumer, KafkaProducer
 from collections import deque
 import json
-
+import re
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import logging
@@ -117,6 +117,7 @@ class Crawler:
         
         try:
             result = SITES[page].crawling(self.driver, item_link)
+            result["site"] = page
             value = (result["created_at"], result["item_name"], item_link, result["shopping_mall"], result["shopping_mall_link"], result["price"], result["delivery"])
         except Exception as e:
             self.crawling_error_logging(e, f"fail crawling {item_link}", item_link)
@@ -128,15 +129,16 @@ class Crawler:
         except Exception as e:
             crawler_connection.rollback()
             self.crawling_error_logging(e, f"fail insert {item_link}", item_link)
-            
-        transformed_message = f'''
-- {result["item_name"]}
-- 원본 링크: {item_link}
-- 구매 링크: {result["shopping_mall_link"]}
-- content: {result["content"]}
-- By: {page}
-'''
-        producer.send(topic = 'transformed_message', value=transformed_message, key = "fail" if result["item_name"] == "err" else "success")
+        
+#         transformed_message = f'''
+# # {result["item_name"]}
+# - [원본 링크]({item_link})
+# - [구매 링크]({result["shopping_mall_link"]})
+# ```{content}```
+# -# {result["created_at"]} {page}
+# '''
+
+        producer.send(topic = 'transformed_message', value=result, key = "fail" if result["item_name"] == "err" else "success")
         
 if __name__ == "__main__":
     crawler_connection = psycopg2.connect(
