@@ -74,7 +74,7 @@ def save_full_screenshot(driver, screenshot_filename):
     with open(screenshot_filename, "wb") as fh:
         fh.write(base64.urlsafe_b64decode(base_64_png['data']))
         
-def error_logging(class_name, driver, e: Exception, error_type, **kwargs):
+def error_logging(class_name, driver, e: Exception, error_type, item_link, **kwargs):
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # 현재 시간을 포맷팅
     error_log = {"error_log": e, "time": timestamp, "error_type": error_type}
     screenshot_filename = f'error_screenshot/{class_name}_{timestamp}.png'
@@ -98,7 +98,7 @@ def error_logging(class_name, driver, e: Exception, error_type, **kwargs):
         logging.info(f"Error uploading file: {e.response['error']}")
     
     try:
-        cursor.execute(error_insert_query, (class_name, str(error_log), timestamp))
+        cursor.execute(error_insert_query, (class_name, str(error_log), timestamp, item_link))
         logging.info(f"Table error insert complete")
         connection.commit()
     except Exception as e:
@@ -148,7 +148,7 @@ class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, d
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
-                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}")
+                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}", item_link)
                 
     @staticmethod
     def crawling(driver, item_link):
@@ -164,7 +164,7 @@ class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, d
             comment = list(map(lambda x: x.text, comment_box.find_elements(By.CLASS_NAME, "text")))
             created_at = driver.find_element(By.CSS_SELECTOR, "body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-wrapper > div.article-head > div.info-row > div.article-info.article-info-section > span:nth-child(12) > span.body > time").text
         except Exception as e:
-            error_logging("ARCA_LIVE", driver, e, f"crawling error, {item_link}")
+            error_logging("ARCA_LIVE", driver, e, f"crawling error, {item_link}", item_link)
             
         finally:
             result = {
@@ -199,7 +199,7 @@ class RULI_WEB(PAGES): # shopping_mall_link, item_name, content, comment
                     continue
                 
             except Exception as e:
-                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}")
+                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}", item_link)
     
     @staticmethod
     def crawling(driver, item_link):
@@ -217,7 +217,7 @@ class RULI_WEB(PAGES): # shopping_mall_link, item_name, content, comment
                 pattern = r'https?://[^\s]+'
                 links = re.findall(pattern, content)
                 shopping_mall_link = links[-1]
-            error_logging("RULI_WEB", driver, e, f"crawling error, {item_link}")
+            error_logging("RULI_WEB", driver, e, f"crawling error, {item_link}", item_link)
             
         finally:
             result = {
@@ -247,7 +247,7 @@ class FM_KOREA(PAGES): # shopping_mall_link, shopping_mall, item_name, price, de
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
-                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}")
+                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}", item_link)
     
     @staticmethod
     def crawling(driver, item_link):
@@ -260,7 +260,7 @@ class FM_KOREA(PAGES): # shopping_mall_link, shopping_mall, item_name, price, de
             comment = list(map(lambda x: x.text, comment))
             created_at = driver.find_element(By.CSS_SELECTOR, "#bd_capture > div.rd_hd.clear > div.board.clear > div.top_area.ngeb > span").text
         except Exception as e:
-            error_logging("FM_KOREA", driver, e, f"crawling error, {item_link}")
+            error_logging("FM_KOREA", driver, e, f"crawling error, {item_link}", item_link)
             
         finally:
             result = {
@@ -290,7 +290,7 @@ class QUASAR_ZONE(PAGES):
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
-                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}")
+                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}", item_link)
                 
     @staticmethod
     def crawling(driver, item_link):
@@ -308,7 +308,7 @@ class QUASAR_ZONE(PAGES):
             shopping_mall_link, shopping_mall, price, delivery, *_ = list(map(lambda x: "".join(x.split()[1:]), details))
             
         except Exception as e:
-            error_logging("QUASAR_ZONE", driver, e, f"crawling error, {item_link}")
+            error_logging("QUASAR_ZONE", driver, e, f"crawling error, {item_link}", item_link)
             
         finally:
             result = {
@@ -340,7 +340,7 @@ class PPOM_PPU(PAGES):
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
-                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}")
+                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}", item_link)
             
     @staticmethod
     def crawling(driver, item_link):
@@ -361,7 +361,7 @@ class PPOM_PPU(PAGES):
             shopping_mall = driver.find_element(By.CSS_SELECTOR, "#topTitle > h1 > span.subject_preface.type2").text
             
         except Exception as e:
-            error_logging("PPOM_PPU", driver, e, f"crawling error, {item_link}")
+            error_logging("PPOM_PPU", driver, e, f"crawling error, {item_link}", item_link)
             
         finally:
             result = {
@@ -402,8 +402,8 @@ if __name__ == "__main__":
     """)
 
     error_insert_query = sql.SQL("""
-        INSERT INTO error (site_name_idx, error_log, timestamp)
-        VALUES (%s, %s, %s)
+        INSERT INTO error (site_name_idx, error_log, timestamp, item_link)
+        VALUES (%s, %s, %s, %s)
     """)
 
     client = WebClient(token=SLACK_TOKEN)
