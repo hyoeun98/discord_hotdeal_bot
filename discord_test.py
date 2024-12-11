@@ -410,7 +410,7 @@ async def send_message_to_channels(message_content):
                 mention_user = info_dict[channel_id]
                 await channel.send(embed=embed)
                 if mention_user:
-                    for user_id in mention_user:
+                    for user_id in set(mention_user):
                         user = channel.guild.get_member(user_id)
                         await channel.send(f"{user.mention} mention")
                     
