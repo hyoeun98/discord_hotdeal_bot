@@ -57,22 +57,26 @@ def set_driver():
     # chrome_options.add_argument('--window-size=1920x1080')
     chrome_options.add_argument("--disable-extensions")
     driver = webdriver.Chrome(options = chrome_options)
-    driver.implicitly_wait(5)
+    driver.implicitly_wait(10)
     return driver
 
 def save_full_screenshot(driver, screenshot_filename):
-    page_rect = driver.execute_cdp_cmd('Page.getLayoutMetrics', {})
-    screenshot_config = {'captureBeyondViewport': True,
-                            'fromSurface': True,
-                            'clip': {'width': page_rect['cssContentSize']['width'],
-                                    'height': page_rect['cssContentSize']['height'], #contentSize -> cssContentSize
-                                    'x': 0,
-                                    'y': 0,
-                                    'scale': 1},
-                            }
-    base_64_png = driver.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)
-    with open(screenshot_filename, "wb") as fh:
-        fh.write(base64.urlsafe_b64decode(base_64_png['data']))
+    try:
+        page_rect = driver.execute_cdp_cmd('Page.getLayoutMetrics', {})
+        screenshot_config = {'captureBeyondViewport': True,
+                                'fromSurface': True,
+                                'clip': {'width': page_rect['cssContentSize']['width'],
+                                        'height': page_rect['cssContentSize']['height'], #contentSize -> cssContentSize
+                                        'x': 0,
+                                        'y': 0,
+                                        'scale': 1},
+                                }
+    except Exception as e:
+        logging.info(f"Table error insert fail")
+    finally:
+        base_64_png = driver.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)
+        with open(screenshot_filename, "wb") as fh:
+            fh.write(base64.urlsafe_b64decode(base_64_png['data']))
         
 def error_logging(class_name, driver, e: Exception, error_type, item_link, **kwargs):
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # 현재 시간을 포맷팅
@@ -112,7 +116,7 @@ class PathFinder:
     
 class PAGES:
     def __init__(self, pathfinder):
-        self.refresh_delay = 60 # sec
+        self.refresh_delay = 5 # sec
         self.driver = pathfinder.driver
             
     def pub_hot_deal_page(self, item_link): # crawling 할 page를 publish
@@ -141,9 +145,10 @@ class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, d
     def get_item_links(self):
         get_item_driver = self.driver
         get_item_driver.get(self.site_name)
-        for i in range(4, 48):
+        for i in range(5, 50):
             try:
                 find_css_selector = f"body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-list > div.list-table.hybrid > div:nth-child({i}) > div > div > span.vcol.col-title > a"
+                item_link = "err"
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
@@ -189,6 +194,7 @@ class RULI_WEB(PAGES): # shopping_mall_link, item_name, content, comment
         get_item_driver = self.driver
         get_item_driver.get(self.site_name)
         find_css_selector = "#board_list > div > div.board_main.theme_default.theme_white.theme_white > table > tbody > tr"
+        item_link = "err"
         item_table = get_item_driver.find_elements(By.CSS_SELECTOR, find_css_selector)
         for i, item in enumerate(item_table):
             try:
@@ -243,6 +249,7 @@ class FM_KOREA(PAGES): # shopping_mall_link, shopping_mall, item_name, price, de
         for i in range(1, 21):
             try:
                 find_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i}) > div > h3 > a"
+                item_link = "err"
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
@@ -286,6 +293,7 @@ class QUASAR_ZONE(PAGES):
         for i in range(1, 31):
             try:
                 find_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div > div.market-info-list-cont > p > a"
+                item_link = "err"
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
@@ -336,6 +344,7 @@ class PPOM_PPU(PAGES):
         for i in range(8, 28):#revolution_main_table > tbody > tr:nth-child(33)
             try:#revolution_main_table > tbody > tr:nth-child(9)
                 find_css_selector = f"#revolution_main_table > tbody > tr:nth-child({i}) > td.baseList-space.title > div > div > a"
+                item_link = "err"
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
@@ -428,27 +437,27 @@ if __name__ == "__main__":
             current = time.time()
             quasar_zone.get_item_links()
             logging.info(f" quasar zone {time.time() - current}")
-            time.sleep(5)
+            time.sleep(quasar_zone.refresh_delay)
             
             current = time.time()
             ppom_ppu.get_item_links()
             logging.info(f" ppomppu {time.time() - current}")
-            time.sleep(5)
+            time.sleep(ppom_ppu.refresh_delay)
             
             current = time.time()
             fm_korea.get_item_links()
             logging.info(f" fm korea {time.time() - current}")
-            time.sleep(5)
+            time.sleep(fm_korea.refresh_delay)
             
             current = time.time()
             ruli_web.get_item_links()
             logging.info(f" ruliweb {time.time() - current}")
-            time.sleep(5)
+            time.sleep(ruli_web.refresh_delay)
             
             current = time.time()
             arca_live.get_item_links()
             logging.info(f" arca live {time.time() - current}")
-            time.sleep(5)
+            time.sleep(arca_live.refresh_delay)
             
         except WebDriverException as e:
             logging.error(f"webdriver exception {e}")
