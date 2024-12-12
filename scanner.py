@@ -57,7 +57,7 @@ def set_driver():
     # chrome_options.add_argument('--window-size=1920x1080')
     chrome_options.add_argument("--disable-extensions")
     driver = webdriver.Chrome(options = chrome_options)
-    driver.implicitly_wait(10)
+    driver.implicitly_wait(300)
     return driver
 
 def save_full_screenshot(driver, screenshot_filename):
@@ -71,8 +71,9 @@ def save_full_screenshot(driver, screenshot_filename):
                                         'y': 0,
                                         'scale': 1},
                                 }
+        
     except Exception as e:
-        logging.info(f"Table error insert fail")
+        logging.info(f"screenshot fail")
     finally:
         base_64_png = driver.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)
         with open(screenshot_filename, "wb") as fh:
