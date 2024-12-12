@@ -107,7 +107,7 @@ class Crawler:
             
     def crawling(self, page, item_link):
         if page not in SITES:
-            raise TypeError("Invalid page name")
+            raise TypeError(f"Invalid page name : {page}")
         
         insert_table = page.lower()
         crawling_result_insert_query = sql.SQL(f"""
