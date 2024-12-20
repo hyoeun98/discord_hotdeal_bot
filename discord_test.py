@@ -118,6 +118,7 @@ class ChannelManager:
                         is_active = TRUE
                 ''', (channel_id, guild_id, channel_name, guild_name, category))
                 conn.commit()
+                logging.info(f"채널 추가 완료 {guild_name} / {channel_name} channel id:{channel_id}")
                 return True
         except Exception as e:
             logging.error(f"채널 추가 중 오류 발생: {e}")
@@ -136,6 +137,7 @@ class ChannelManager:
                     WHERE channel_id = %s
                 ''', (channel_id,))
                 conn.commit()
+                logging.info(f"채널 삭제 완료 channel id:{channel_id}")
                 return True
         except Exception as e:
             logging.error(f"채널 제거 중 오류 발생: {e}")
@@ -292,6 +294,7 @@ intents.message_content = True
 intents.guilds = True
 intents.members = True
 bot = commands.Bot(command_prefix='/', intents=intents)
+bot.remove_command("help")
 channel_manager = ChannelManager()
 
 @bot.event
@@ -308,27 +311,40 @@ async def on_guild_join(guild):
     # 시스템 채널이 존재하는 경우 안내 메시지를 보냅니다.
     if channel is not None:
         await channel.send(
-            f"""- 등록 : /register
-            - 해제 : /unregister"""
+            f"안녕하세요! */help*"
         )
 
-@bot.command()
+@bot.command(usage = "/add_keyword 키워드")
 async def add_keyword(ctx, *, keyword):
     """알람 keyword 등록"""
     result = channel_manager.add_keyword(ctx.channel.id, ctx.author.id, keyword)
     await ctx.send(result)
 
-@bot.command()
+@bot.command(usage = "/del_keyword 키워드")
 async def del_keyword(ctx, *, keyword):
     """알람 keyword 삭제"""
     result = channel_manager.del_keyword(ctx.channel.id, ctx.author.id, keyword)
     await ctx.send(result)
     
-@bot.command()
+@bot.command(usage = "/get_keyword")
 async def get_keyword(ctx):
-    """알람 keyword 삭제"""
+    """등록된 keyword 가져오기     """
     result = channel_manager.get_keyword(ctx.channel.id)
     await ctx.send(result)
+    
+@bot.command()
+async def help(ctx):
+    """help message 전송"""
+    help_message=f"""
+- 채널 등록: /register
+- 채널 해제: /unregister
+- 키워드 등록: /add_keyword 키워드
+- 키워드 해제: /del_keyword 키워드
+- 등록한 키워드 보기: /get_keyword
+
+키워드 등록 시 키워드가 포함된 글은 {ctx.author.mention} 멘션이 갑니다!
+"""
+    await ctx.send(help_message)
     
 @bot.command(name="register", description="이 채널에 핫딜정보를 출력합니다.")
 async def register(ctx):
@@ -371,21 +387,21 @@ async def unregister(ctx):
     else:
         await ctx.send('채널 등록 해제에 실패했습니다.')
 
-@bot.command()
-async def stats(ctx):
-    """채널 통계 조회"""
-    stats = channel_manager.get_channel_stats(ctx.channel.id)
-    if stats:
-        channel_name, guild_name, msg_count, last_msg = stats
-        await ctx.send(f'''
-채널 통계:
-- 채널명: {channel_name}
-- 서버명: {guild_name}
-- 전송된 메시지 수: {msg_count}
-- 마지막 메시지 전송: {last_msg}
-''')
-    else:
-        await ctx.send('채널 통계를 찾을 수 없습니다.')
+# @bot.command()
+# async def stats(ctx):
+#     """채널 통계 조회"""
+#     stats = channel_manager.get_channel_stats(ctx.channel.id)
+#     if stats:
+#         channel_name, guild_name, msg_count, last_msg = stats
+#         await ctx.send(f'''
+# 채널 통계:
+# - 채널명: {channel_name}
+# - 서버명: {guild_name}
+# - 전송된 메시지 수: {msg_count}
+# - 마지막 메시지 전송: {last_msg}
+# ''')
+#     else:
+#         await ctx.send('채널 통계를 찾을 수 없습니다.')
         
 def transform_message(message):
     content = message["content"]
@@ -412,7 +428,7 @@ async def send_message_to_channels(message_content):
                 if mention_user:
                     for user_id in set(mention_user):
                         user = channel.guild.get_member(user_id)
-                        await channel.send(f"{user.mention} mention")
+                        await channel.send(f"{user.mention} {embed.title}")
                     
                 channel_manager.log_message(channel_id, message_content, 'success')
                 logging.info(f'메시지 전송 성공: {channel.guild.name}/{channel.name}')
@@ -447,6 +463,6 @@ def run_kafka_consumer():
 def main():
     """메인 함수"""
     bot.run(DISCORD_TOKEN)
-
+    
 if __name__ == "__main__":
     main()
