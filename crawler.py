@@ -43,10 +43,13 @@ def set_driver():
     chrome_options.add_argument("--headless")
     chrome_options.add_argument('--blink-settings=imagesEnabled=false')
     chrome_options.add_argument('--block-new-web-contents')
+    chrome_options.add_argument('--start-maximized')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-gpu')
     # chrome_options.add_argument('--window-size=1920x1080')
-    # chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument("--disable-extensions")
     driver = webdriver.Chrome(options = chrome_options)
-    driver.implicitly_wait(5)
+    driver.implicitly_wait(10)
     return driver
 
 class Crawler:
@@ -103,7 +106,11 @@ class Crawler:
             item_link = message.value
             logging.info(item_link)
             # self.send_discord(page = page, item_link = item_link)
-            self.crawling(page, item_link)
+            if item_link is not None:
+                self.crawling(page, item_link)
+                time.sleep(1)
+            else:
+                logging.info("None123")
             
     def crawling(self, page, item_link):
         if page not in SITES:
@@ -137,8 +144,10 @@ class Crawler:
 # ```{content}```
 # -# {result["created_at"]} {page}
 # '''
-
-        producer.send(topic = 'transformed_message', value=result, key = "fail" if result["item_name"] == "err" else "success")
+        try:
+            producer.send(topic = 'transformed_message', value=result, key = "fail" if result["item_name"] == "err" else "success")
+        except Exception as e:
+            self.crawling_error_logging(e, f"fail publishing {item_link}", item_link)
         
 if __name__ == "__main__":
     crawler_connection = psycopg2.connect(
