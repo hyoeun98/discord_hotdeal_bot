@@ -54,10 +54,12 @@ def set_driver():
     chrome_options.add_argument('--blink-settings=imagesEnabled=false')
     chrome_options.add_argument('--block-new-web-contents')
     chrome_options.add_argument('--start-maximized')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-gpu')
     # chrome_options.add_argument('--window-size=1920x1080')
     chrome_options.add_argument("--disable-extensions")
     driver = webdriver.Chrome(options = chrome_options)
-    driver.implicitly_wait(300)
+    driver.implicitly_wait(10)
     return driver
 
 def save_full_screenshot(driver, screenshot_filename):
@@ -71,19 +73,17 @@ def save_full_screenshot(driver, screenshot_filename):
                                         'y': 0,
                                         'scale': 1},
                                 }
-        
-    except Exception as e:
-        logging.info(f"screenshot fail")
-    finally:
         base_64_png = driver.execute_cdp_cmd('Page.captureScreenshot', screenshot_config)
         with open(screenshot_filename, "wb") as fh:
             fh.write(base64.urlsafe_b64decode(base_64_png['data']))
+    except Exception as e:
+        logging.info(f"screenshot fail {screenshot_filename}")
+        # driver.save_screenshot(filename)
         
 def error_logging(class_name, driver, e: Exception, error_type, item_link, **kwargs):
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # 현재 시간을 포맷팅
     error_log = {"error_log": e, "time": timestamp, "error_type": error_type}
     screenshot_filename = f'error_screenshot/{class_name}_{timestamp}.png'
-    save_full_screenshot(driver, screenshot_filename)
     
     if kwargs:
         for k, v in kwargs:
@@ -91,6 +91,7 @@ def error_logging(class_name, driver, e: Exception, error_type, item_link, **kwa
     logging.info(error_log)
     
     try:
+        save_full_screenshot(driver, screenshot_filename)
         with open(screenshot_filename, 'rb') as file:
             response = client.files_upload_v2(
                 channel=SLACK_CHANNEL_ID,
@@ -117,7 +118,7 @@ class PathFinder:
     
 class PAGES:
     def __init__(self, pathfinder):
-        self.refresh_delay = 5 # sec
+        self.refresh_delay = 30 # sec
         self.driver = pathfinder.driver
             
     def pub_hot_deal_page(self, item_link): # crawling 할 page를 publish
@@ -146,15 +147,16 @@ class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, d
     def get_item_links(self):
         get_item_driver = self.driver
         get_item_driver.get(self.site_name)
-        for i in range(5, 50):
+        for i in range(2, 46):
             try:
-                find_css_selector = f"body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-list > div.list-table.hybrid > div:nth-child({i}) > div > div > span.vcol.col-title > a"
+                # "/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[45]"
+                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/a"
                 item_link = "err"
-                item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
+                item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
                 item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
-                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}", item_link)
+                error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_xpath_selector}", item_link)
                 
     @staticmethod
     def crawling(driver, item_link):
@@ -394,45 +396,13 @@ SITES = {
     "RULI_WEB" : RULI_WEB,
 }
 
-if __name__ == "__main__":
-    logging.basicConfig(filename='scanner.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    logging.info("Start Scanning")
-    connection = psycopg2.connect(
-    dbname = DB_NAME,
-    user = DB_USER,
-    password = DB_PASSWORD,
-    host = DB_HOST,
-    port = DB_PORT
-    )
-    cursor = connection.cursor()
-
-    page_insert_query = sql.SQL("""
-        INSERT INTO pages (site_name_idx, item_link)
-        VALUES (%s, %s)
-    """)
-
-    error_insert_query = sql.SQL("""
-        INSERT INTO error (site_name_idx, error_log, timestamp, item_link)
-        VALUES (%s, %s, %s, %s)
-    """)
-
-    client = WebClient(token=SLACK_TOKEN)
-
-    producer = KafkaProducer(
-        acks=0, # 메시지 전송 완료에 대한 체크
-        compression_type='gzip', # 메시지 전달할 때 압축(None, gzip, snappy, lz4 등)
-        bootstrap_servers=['localhost:29092', 'localhost:39092', 'localhost:49092'], # 전달하고자 하는 카프카 브로커의 주소 리스트
-        value_serializer=lambda x:json.dumps(x, default=str).encode('utf-8'), # 메시지의 값 직렬화
-        key_serializer=lambda x:json.dumps(x, default=str).encode('utf-8') # 키의 값 직렬화
-    )
-
+def start_scanning():
     pathfinder = PathFinder()
     quasar_zone = QUASAR_ZONE(pathfinder)
     ppom_ppu = PPOM_PPU(pathfinder)
     fm_korea = FM_KOREA(pathfinder)
     ruli_web = RULI_WEB(pathfinder)
     arca_live = ARCA_LIVE(pathfinder)
-
     while True:
         try:
             current = time.time()
@@ -479,6 +449,39 @@ if __name__ == "__main__":
                         initial_comment=error_log  # 업로드할 때 이미지 제목
                     )
                 logging.info(f"File uploaded successfully: {response['file']['permalink']}")
-            except SlackApiError as e:
-                logging.error(f"Error uploading file: {e.response['error']}")
-            pathfinder.driver.refresh()
+            except Exception as e:
+                logging.error(f"Error uploading file: {e}")
+            
+if __name__ == "__main__":
+    logging.basicConfig(filename='scanner.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.info("Start Scanning")
+    connection = psycopg2.connect(
+    dbname = DB_NAME,
+    user = DB_USER,
+    password = DB_PASSWORD,
+    host = DB_HOST,
+    port = DB_PORT
+    )
+    cursor = connection.cursor()
+
+    page_insert_query = sql.SQL("""
+        INSERT INTO pages (site_name_idx, item_link)
+        VALUES (%s, %s)
+    """)
+
+    error_insert_query = sql.SQL("""
+        INSERT INTO error (site_name_idx, error_log, timestamp, item_link)
+        VALUES (%s, %s, %s, %s)
+    """)
+
+    client = WebClient(token=SLACK_TOKEN)
+
+    producer = KafkaProducer(
+        acks=0, # 메시지 전송 완료에 대한 체크
+        compression_type='gzip', # 메시지 전달할 때 압축(None, gzip, snappy, lz4 등)
+        bootstrap_servers=['localhost:29092', 'localhost:39092', 'localhost:49092'], # 전달하고자 하는 카프카 브로커의 주소 리스트
+        value_serializer=lambda x:json.dumps(x, default=str).encode('utf-8'), # 메시지의 값 직렬화
+        key_serializer=lambda x:json.dumps(x, default=str).encode('utf-8') # 키의 값 직렬화
+    )
+
+    start_scanning()
