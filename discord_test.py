@@ -409,7 +409,7 @@ def transform_message(message):
     embed = discord.Embed(title=f"{message['item_name']}", description=f"{message['site']}", timestamp=datetime.now(pytz.timezone("UTC")))
     embed.add_field(name="원문 링크", value=message["item_link"], inline=True)
     embed.add_field(name="구매 링크", value=message["shopping_mall_link"], inline=True)
-    embed.add_field(name="본문", value=content, inline=False)
+    embed.add_field(name="본문", value=content[:1024], inline=False)
     
     return embed
 
