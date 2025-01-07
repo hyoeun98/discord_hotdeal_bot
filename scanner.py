@@ -479,7 +479,7 @@ if __name__ == "__main__":
     producer = KafkaProducer(
         acks=0, # 메시지 전송 완료에 대한 체크
         compression_type='gzip', # 메시지 전달할 때 압축(None, gzip, snappy, lz4 등)
-        bootstrap_servers=['localhost:29092', 'localhost:39092', 'localhost:49092'], # 전달하고자 하는 카프카 브로커의 주소 리스트
+        bootstrap_servers=['localhost:29092'], # 전달하고자 하는 카프카 브로커의 주소 리스트
         value_serializer=lambda x:json.dumps(x, default=str).encode('utf-8'), # 메시지의 값 직렬화
         key_serializer=lambda x:json.dumps(x, default=str).encode('utf-8') # 키의 값 직렬화
     )

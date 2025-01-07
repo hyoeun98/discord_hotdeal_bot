@@ -82,14 +82,15 @@ class Crawler:
                 error_log[k] = v
         
         try:
-            with open(screenshot_filename, 'rb') as file:
-                response = crawler_client.files_upload_v2(
-                    channel=SLACK_CHANNEL_ID,
-                    file=file,
-                    filename=os.path.basename(screenshot_filename),  # 파일 이름
-                    initial_comment=error_log  # 업로드할 때 이미지 제목
-                )
-            logging.info(f"File uploaded successfully: {response['file']['permalink']}")
+            if os.path.exists(screenshot_filename):
+                with open(screenshot_filename, 'rb') as file:
+                    response = crawler_client.files_upload_v2(
+                        channel=SLACK_CHANNEL_ID,
+                        file=file,
+                        filename=os.path.basename(screenshot_filename),  # 파일 이름
+                        initial_comment=error_log  # 업로드할 때 이미지 제목
+                    )
+                logging.info(f"File uploaded successfully: {response['file']['permalink']}")
         except SlackApiError as e:
             logging.error(f"Error uploading file: {e.response['error']}")
         
@@ -167,7 +168,7 @@ if __name__ == "__main__":
 
     consumer = KafkaConsumer(
         'test', # 토픽명
-        bootstrap_servers=['localhost:29092', 'localhost:39092', 'localhost:49092'], # 카프카 브로커 주소 리스트
+        bootstrap_servers=['localhost:29092'], # 카프카 브로커 주소 리스트
         auto_offset_reset='earliest', # 오프셋 위치(earliest:가장 처음, latest: 가장 최근)
         enable_auto_commit=True, # 오프셋 자동 커밋 여부
         group_id = "discord_bot",
@@ -178,7 +179,7 @@ if __name__ == "__main__":
     producer = KafkaProducer(
         acks=0, # 메시지 전송 완료에 대한 체크
         compression_type='gzip', # 메시지 전달할 때 압축(None, gzip, snappy, lz4 등)
-        bootstrap_servers=['localhost:29092', 'localhost:39092', 'localhost:49092'], # 전달하고자 하는 카프카 브로커의 주소 리스트
+        bootstrap_servers=['localhost:29092'], # 전달하고자 하는 카프카 브로커의 주소 리스트
         value_serializer=lambda x:json.dumps(x, default=str).encode('utf-8'), # 메시지의 값 직렬화
         key_serializer=lambda x:json.dumps(x, default=str).encode('utf-8') # 키의 값 직렬화
     )
