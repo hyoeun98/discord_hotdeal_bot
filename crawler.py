@@ -129,6 +129,8 @@ class Crawler:
             value = (result["created_at"], result["item_name"], item_link, result["shopping_mall"], result["shopping_mall_link"], result["price"], result["delivery"])
         except Exception as e:
             self.crawling_error_logging(e, f"fail crawling {item_link}", item_link)
+            self.driver.close()
+            self.driver = set_driver()
             
         try:
             crawler_cursor.execute(crawling_result_insert_query, value)
