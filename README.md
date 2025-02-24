@@ -19,3 +19,8 @@ Discord bot that tells you the hot deal
     - DB - postgresql 사용
 
 ![diagram](https://github.com/user-attachments/assets/192cca48-8d84-46a8-9e5b-79d25e3e5112)
+
+---
+### To do
+- kafka 대신 redis queue 사용 (volume에 비해 불필요한 resource 낭비)
+- keyword table 주기적 update
