@@ -22,5 +22,9 @@ Discord bot that tells you the hot deal
 
 ---
 ### To do
-- kafka 대신 redis queue 사용 (volume에 비해 불필요한 resource 낭비)
 - keyword table 주기적 update
+- cloud화
+  - data lake : postgreSQL -> s3로 대체
+  - 작업 큐 : kafka -> SQS로 대체
+  - crawler : ec2 or fargate
+  - transform, message send : lambda
