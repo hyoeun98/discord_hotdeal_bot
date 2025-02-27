@@ -27,4 +27,4 @@ Discord bot that tells you the hot deal
   - data lake : postgreSQL -> s3로 대체
   - 작업 큐 : kafka -> SQS로 대체
   - crawler : ec2 or fargate
-  - transform, message send : lambda
+  - transform, message send : lambda + ec2
