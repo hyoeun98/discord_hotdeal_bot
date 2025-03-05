@@ -159,24 +159,20 @@ class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, d
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
                 error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {item}", item_link)
-                
+    
     @staticmethod
     def crawling(driver, item_link):
-        try:
-            response = requests.get(item_link)
-            soup = BeautifulSoup(response.content, "html.parser")
-
+        driver.get(item_link)
+        try: # 신고 처리, 보안 검사 등
             created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment = "err", "err", "err", "err", "err", "err", "err", "err"
-
-            table_rows = soup.find(class_= "table align-middle article-options").find_all("tr")
-            table_content = []
-            for row in table_rows:
-                table_content.append(row.find_all("td")[1].text.strip())
-            shopping_mall_link, shopping_mall, item_name, price, delivery = table_content
-            content = soup.select("body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-wrapper > div.article-body > div.fr-view.article-content")[0].text
-            comments = soup.select("#comment > div.list-area")
-            comment = [i.text for i in comments[0].find_all(class_ = "text")]
-            created_at = soup.select("body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-wrapper > div.article-head > div.info-row > div.article-info.article-info-section > span:nth-child(12) > span.body > time")[0].text
+            table = driver.find_element(By.TAG_NAME, "table")
+            rows = table.find_elements(By.TAG_NAME, "tr")
+            details = [row.text for row in rows]
+            shopping_mall_link, shopping_mall, item_name, price, delivery = list(map(lambda x: "".join(x.split()[1:]), details))
+            content = driver.find_element(By.CSS_SELECTOR, "body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-wrapper > div.article-body > div.fr-view.article-content").text
+            comment_box = driver.find_element(By.CSS_SELECTOR, "#comment > div.list-area")
+            comment = list(map(lambda x: x.text, comment_box.find_elements(By.CLASS_NAME, "text")))
+            created_at = driver.find_element(By.CSS_SELECTOR, "body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-wrapper > div.article-head > div.info-row > div.article-info.article-info-section > span:nth-child(12) > span.body > time").text
         except Exception as e:
             error_logging("ARCA_LIVE", driver, e, f"crawling error, {item_link}", item_link)
             
