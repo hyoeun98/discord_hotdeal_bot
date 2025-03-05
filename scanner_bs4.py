@@ -147,11 +147,15 @@ class ARCA_LIVE(PAGES): # shopping_mall_link, shopping_mall, item_name, price, d
         super().__init__(pathfinder)
         
     def get_item_links(self):
-        response = requests.get(self.site_name)
-        soup = BeautifulSoup(response.content, "html.parser")
-        for item in soup.find_all(class_ = "title preview-image"):
+        get_item_driver = self.driver
+        get_item_driver.get(self.site_name)
+        for i in range(2, 27):
             try:
-                item_link = "https://arca.live" + item.attrs["href"]
+                # "/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[45]"
+                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/a"
+                item_link = "err"
+                item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
+                item_link = item.get_attribute("href")
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
                 error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {item}", item_link)
