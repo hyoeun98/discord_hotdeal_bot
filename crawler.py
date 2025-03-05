@@ -12,6 +12,7 @@ import json
 import re
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
+from selenium_stealth import stealth
 import logging
 import re
 import random
@@ -40,6 +41,9 @@ DB_PORT = os.environ.get("DB_PORT")
 
 def set_driver():
     chrome_options = Options()
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+
     chrome_options.add_argument("--headless")
     chrome_options.add_argument('--blink-settings=imagesEnabled=false')
     chrome_options.add_argument('--block-new-web-contents')
@@ -49,6 +53,13 @@ def set_driver():
     # chrome_options.add_argument('--window-size=1920x1080')
     chrome_options.add_argument("--disable-extensions")
     driver = webdriver.Chrome(options = chrome_options)
+    stealth(driver,
+        languages=['en-US','en'],
+        vendor='Google Inc.',
+        platform='Win32',
+        webgl_vendor='Intel Inc.',
+        renderer='Intel Iris OpenGL Engine',
+        fix_hairline=True)
     driver.implicitly_wait(10)
     return driver
 
