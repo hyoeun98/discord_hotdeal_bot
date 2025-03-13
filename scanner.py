@@ -13,7 +13,9 @@ from enum import Enum
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from selenium.webdriver.remote.errorhandler import WebDriverException
-
+import requests
+from bs4 import BeautifulSoup
+from selenium_stealth import stealth
 import logging
 import re
 import random
@@ -50,6 +52,9 @@ DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK")
 
 def set_driver():
     chrome_options = Options()
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+
     chrome_options.add_argument("--headless")
     chrome_options.add_argument('--blink-settings=imagesEnabled=false')
     chrome_options.add_argument('--block-new-web-contents')
@@ -59,6 +64,13 @@ def set_driver():
     # chrome_options.add_argument('--window-size=1920x1080')
     chrome_options.add_argument("--disable-extensions")
     driver = webdriver.Chrome(options = chrome_options)
+    stealth(driver,
+        languages=['en-US','en'],
+        vendor='Google Inc.',
+        platform='Win32',
+        webgl_vendor='Intel Inc.',
+        renderer='Intel Iris OpenGL Engine',
+        fix_hairline=True)
     driver.implicitly_wait(10)
     return driver
 
@@ -353,7 +365,7 @@ class PPOM_PPU(PAGES):
                 self.pub_hot_deal_page(item_link)
             except Exception as e:
                 error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}", item_link)
-            
+          
     @staticmethod
     def crawling(driver, item_link):
         driver.get(item_link)
@@ -369,7 +381,7 @@ class PPOM_PPU(PAGES):
             content = driver.find_element(By.CSS_SELECTOR, "body > div.wrapper > div.contents > div.container > div > table:nth-child(14) > tbody > tr:nth-child(1) > td > table > tbody > tr > td").text
             comment = driver.find_element(By.ID, "quote").text
             created_at = driver.find_element(By.CSS_SELECTOR, "#topTitle > div > ul > li:nth-child(2)").text.lstrip("등록일 ")
-            shopping_mall_link = driver.find_element(By.CSS_SELECTOR, "#topTitle > div > ul > li.topTitle-link > a").text
+            shopping_mall_link = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/div[2]/div/ul/li[4]/a").text
             shopping_mall = driver.find_element(By.CSS_SELECTOR, "#topTitle > h1 > span.subject_preface.type2").text
             
         except Exception as e:
