@@ -378,11 +378,11 @@ class PPOM_PPU(PAGES):
             # shopping_mall = driver.find_element(By.CSS_SELECTOR, "body > div.wrapper > div.contents > div.container > div > table:nth-child(9) > tbody > tr:nth-child(3) > td > table > tbody > tr > td:nth-child(5) > div > div.sub-top-text-box > font.view_title2 > span").text
             created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment = "err", "err", "err", "err", "err", "err", "err", "err"
             item_name = driver.find_element(By.CSS_SELECTOR, "#topTitle > h1").text
-            content = driver.find_element(By.CSS_SELECTOR, "body > div.wrapper > div.contents > div.container > div > table:nth-child(14) > tbody > tr:nth-child(1) > td > table > tbody > tr > td").text
+            content = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/table[3]/tbody/tr[1]/td/table/tbody/tr/td").text
             comment = driver.find_element(By.ID, "quote").text
-            created_at = driver.find_element(By.CSS_SELECTOR, "#topTitle > div > ul > li:nth-child(2)").text.lstrip("등록일 ")
-            shopping_mall_link = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/div[2]/div/ul/li[4]/a").text
-            shopping_mall = driver.find_element(By.CSS_SELECTOR, "#topTitle > h1 > span.subject_preface.type2").text
+            created_at = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/div[3]/div/ul/li[2]").text.lstrip("등록일 ")
+            shopping_mall_link = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/div[3]/div/ul/li[4]/a").text
+            shopping_mall = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/div[3]/h1/span").text
             
         except Exception as e:
             error_logging("PPOM_PPU", driver, e, f"crawling error, {item_link}", item_link)
