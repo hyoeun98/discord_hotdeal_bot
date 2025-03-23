@@ -89,10 +89,11 @@ def save_full_screenshot(driver, screenshot_filename):
         with open(screenshot_filename, "wb") as fh:
             fh.write(base64.urlsafe_b64decode(base_64_png['data']))
     except Exception as e:
-        logging.info(f"screenshot fail {screenshot_filename}")
+        logging.info(f"screenshot fail {screenshot_filename} {e}")
         # driver.save_screenshot(filename)
         
 def error_logging(class_name, driver, e: Exception, error_type, item_link, **kwargs):
+    # error_logging(self.__class__.__name__, self.driver, e, f"fail get item links {find_css_selector}", item_link)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')  # 현재 시간을 포맷팅
     error_log = {"error_log": e, "time": timestamp, "error_type": error_type}
     screenshot_filename = f'error_screenshot/{class_name}_{timestamp}.png'
@@ -454,6 +455,7 @@ def start_scanning():
                 logging.info(f"File uploaded successfully: {response['file']['permalink']}")
             except Exception as e:
                 logging.error(f"Error uploading file: {e}")
+            return
             
 if __name__ == "__main__":
     logging.basicConfig(filename='scanner.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
