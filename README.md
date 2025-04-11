@@ -23,8 +23,9 @@ Discord bot that tells you the hot deal
 ---
 ### To do
 - keyword table 주기적 update
-- cloud화
-  - data lake : postgreSQL -> s3로 대체
-  - 작업 큐 : kafka -> SQS로 대체
-  - crawler : ec2 or fargate
-  - transform, message send : lambda + ec2
+- ~cloud화~
+  - ~data lake : postgreSQL -> s3로 대체~ Lightsail postgreSQL 사용
+  - ~작업 큐 : kafka -> SQS로 대체~ SQS 대체 완료
+  - ~crawler : ec2 or fargate~ Lambda 대체 완료
+  - ~transform, message send : lambda + ec2~ Lightsail 대체 완료
+- item 대분류 : chatgpt 4o mini or gemini 1.5 Flash-8B 사용
