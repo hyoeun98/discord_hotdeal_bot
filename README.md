@@ -18,7 +18,7 @@ Discord bot that tells you the hot deal
     - message broker - kafka 사용
     - DB - postgresql 사용
 
-![diagram](https://github.com/user-attachments/assets/192cca48-8d84-46a8-9e5b-79d25e3e5112)
+![제목 없음-2025-04-11-1540](https://github.com/user-attachments/assets/baeaa592-1f0a-40f2-b198-9515f29d4535)
 
 ---
 ### To do
