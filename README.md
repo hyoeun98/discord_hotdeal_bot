@@ -9,7 +9,7 @@ Discord bot that tells you the hot deal
     - 키워드 설정 시 멘션으로 알림
     - 예시
         
-    ![example](https://github.com/user-attachments/assets/bb2a33f7-1196-43fd-b165-de675ec3d8ef)
+    ![example](https://github.com/user-attachments/assets/66c59425-f8ad-494f-a691-344d876a2ba0)
 
 
 - 기술 스택 및 개발 상세 내용
