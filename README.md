@@ -17,6 +17,7 @@ Discord bot that tells you the hot deal
     - 에러 발생 시 로깅 - slack 사용
     - message broker - kafka 사용
     - DB - postgresql 사용
+    - Hash tag 생성 - ChatGPT
 
 ![제목 없음-2025-04-11-1540](https://github.com/user-attachments/assets/baeaa592-1f0a-40f2-b198-9515f29d4535)
 
