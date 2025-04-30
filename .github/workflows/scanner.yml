@@ -1,4 +1,4 @@
-name: Build and Push Docker Image to AWS ECR for scanner
+name: Build and Push Docker Image scanner
 
 on:
   push:
