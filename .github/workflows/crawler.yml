@@ -1,4 +1,4 @@
-name: Build and Push Docker Image to AWS ECR for crawler
+name: Build and Push Docker Image crawler
 
 on:
   push:
