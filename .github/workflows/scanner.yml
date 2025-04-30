@@ -45,13 +45,17 @@ jobs:
           ECR_REPOSITORY: scanner
           IMAGE_TAG: latest
         run: |
-          docker buildx build \
+          # ECR에서 캐시 이미지 가져오기 (캐시 소스로 사용)
+          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG || true
+          # 빌드 시 ECR 이미지 캐시 사용
+          docker build \
             --platform linux/x86_64 \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            --cache-from type=local,src=/tmp/.buildx-cache \
-            --cache-to type=local,dest=/tmp/.buildx-cache \
-            --push \
-            .
+            --cache-from $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REPOSITORY .
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          # 로컬 캐시 저장
+          docker image save $ECR_REPOSITORY:$IMAGE_TAG -o /tmp/.docker-cache/image.tar
 
       - name: Update Lambda function with new ECR image
         env:
