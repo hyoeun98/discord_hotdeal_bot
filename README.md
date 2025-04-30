@@ -17,7 +17,7 @@
     - 에러 발생 시 로깅 - slack 사용
     - message broker - aws SQS 사용
     - DB - postgresql 사용
-    - Hash tag 생성 - ChatGPT
+    - Hash tag 생성 - ChatGPT-4.1 nano
 
 ![제목 없음-2025-04-11-1540](https://github.com/user-attachments/assets/baeaa592-1f0a-40f2-b198-9515f29d4535)
 
