@@ -40,7 +40,7 @@ jobs:
         with:
           context: ./lambda-selenium-docker-scanner
           push: true
-          platforms: linux/arm64
+          platform: linux/x86_64
           tags: ${{ steps.login-ecr.outputs.registry }}/scanner:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
