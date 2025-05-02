@@ -18,6 +18,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # 로컬 캐시 설정
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -29,17 +38,22 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # AWS Lambda 호환 이미지 빌드 및 캐싱 최적화
+      # 로컬 캐시를 사용하여 이미지 빌드
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./lambda-selenium-docker-scanner
-          file: ./lambda-selenium-docker-scanner/Dockerfile
           push: true
           tags: ${{ steps.login-ecr.outputs.registry }}/scanner:latest
-          platforms: linux/amd64  # AWS Lambda에서 지원하는 아키텍처
-          cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/scanner:buildcache
-          cache-to: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/scanner:buildcache,mode=max
+          platforms: linux/amd64
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+      # 캐시 업데이트
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
 
       # Lambda 함수 업데이트
       - name: Update Lambda function with new ECR image
