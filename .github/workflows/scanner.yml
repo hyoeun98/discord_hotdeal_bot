@@ -40,27 +40,19 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and push Docker image to ECR
-        working-directory: ./lambda-selenium-docker-scanner
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: scanner
-          IMAGE_TAG: latest
+        uses: docker/build-push-action@v5
+        with:
+          context: ./lambda-selenium-docker-scanner
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/scanner:latest
+          platforms: linux/x86_64
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+      
+      - name: Move cache
         run: |
-          # 캐시 경로
-          CACHE_DIR=/tmp/.buildx-cache
-      
-          # 캐시 디렉토리 만들기
-          mkdir -p $CACHE_DIR
-          docker build --platform linux/x86_64 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-      
-          docker manifest inspect $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
-          # manifest 타입 확인 (선택)
-          docker manifest inspect $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Update Lambda function with new ECR image
         env:
