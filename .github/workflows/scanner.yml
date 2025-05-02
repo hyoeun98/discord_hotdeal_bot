@@ -46,6 +46,11 @@ jobs:
           ECR_REPOSITORY: scanner
           IMAGE_TAG: latest
         run: |
+          # 캐시 경로
+          CACHE_DIR=/tmp/.buildx-cache
+      
+          # 캐시 디렉토리 만들기
+          mkdir -p $CACHE_DIR
           docker build --platform linux/x86_64 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
       
