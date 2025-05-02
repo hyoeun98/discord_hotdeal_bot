@@ -46,14 +46,10 @@ jobs:
           ECR_REPOSITORY: scanner
           IMAGE_TAG: latest
         run: |
-          mkdir -p /tmp/.buildx-cache
-
-          docker buildx build \
-            --platform linux/x86_64 \
-            --cache-from=type=local,src=/tmp/.buildx-cache \
-            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            --push .
+          docker build --platform linux/x86_64 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+      
+          docker manifest inspect $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
