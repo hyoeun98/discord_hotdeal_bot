@@ -1,22 +1,24 @@
-name: Build and Push Docker Image for Lambda
+name: Build and Push Docker Image scanner
+
 on:
   push:
     branches:
       - main
     paths:
       - 'lambda-selenium-docker-scanner/**'
+
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
@@ -24,61 +26,45 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
-      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
-      
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-      
-      - name: Build and push Docker image for Lambda
+
+      - name: Build and push Docker image to ECR
         working-directory: ./lambda-selenium-docker-scanner
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: scanner
           IMAGE_TAG: latest
         run: |
-          # 캐시 사용을 위한 Buildx 설정
-          docker buildx create --use
-          
-          # AWS Lambda 호환 이미지 빌드 및 푸시
-          docker buildx build \
-            --platform=linux/amd64 \
-            --cache-from=type=local,src=/tmp/.buildx-cache \
-            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
-            --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            --push \
-            .
-            
-          # 캐시 관리
-          rm -rf /tmp/.buildx-cache
-          mkdir -p /tmp/.buildx-cache
-          if [ -d "/tmp/.buildx-cache-new" ]; then
-            mv /tmp/.buildx-cache-new/* /tmp/.buildx-cache/ || true
-            rm -rf /tmp/.buildx-cache-new
-          fi
-      
-      # Lambda 함수 업데이트 전에 이미지 디제스트 가져오기
-      - name: Get image digest
-        id: image-digest
-        run: |
-          DIGEST=$(aws ecr describe-images --repository-name scanner --image-ids imageTag=latest --query 'imageDetails[0].imageDigest' --output text)
-          echo "DIGEST=$DIGEST" >> $GITHUB_ENV
-          echo "Image Digest: $DIGEST"
-      
-      # Lambda 함수 업데이트
+          # 캐시 디렉토리 생성
+          mkdir -p /tmp/.docker-cache
+          # ECR에서 캐시 이미지 가져오기 (캐시 소스로 사용)
+          docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG || true
+          # 빌드 시 ECR 이미지 캐시 사용
+          docker build \
+            --platform linux/x86_64 \
+            --cache-from $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REPOSITORY .
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          # 로컬 캐시 저장
+          docker image save $ECR_REPOSITORY:$IMAGE_TAG -o /tmp/.docker-cache/image.tar
       - name: Update Lambda function with new ECR image
         env:
           LAMBDA_FUNCTION_NAME: scanner
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: scanner
+          IMAGE_TAG: latest
         run: |
           aws lambda update-function-code \
             --function-name $LAMBDA_FUNCTION_NAME \
-            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY@$DIGEST \
+            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             --region ap-northeast-2
