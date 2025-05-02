@@ -37,7 +37,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build \
+         docker buildx create --use
+         docker buildx build \
             --platform linux/x86_64 \
             --cache-from type=gha \
             --cache-to type=gha,mode=max \
