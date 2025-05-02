@@ -35,17 +35,23 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        env:
-          DOCKER_BUILDKIT: 1
-        with:
-          context: ./lambda-selenium-docker-scanner
-          push: true
-          platforms: linux/amd64
-          tags: ${{ steps.login-ecr.outputs.registry }}/scanner:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build Docker image
+        run: |
+          docker build \
+            --platform linux/x86_64 \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --output type=docker \
+            -t scanner:build \
+            ./lambda-selenium-docker-scanner
+      
+      - name: Tag Docker image
+        run: |
+          docker tag scanner:build ${{ steps.login-ecr.outputs.registry }}/scanner:latest
+      
+      - name: Push Docker image
+        run: |
+          docker push ${{ steps.login-ecr.outputs.registry }}/scanner:latest
 
       - name: Update Lambda function with new ECR image
         env:
