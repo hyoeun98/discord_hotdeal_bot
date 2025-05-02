@@ -45,17 +45,21 @@ jobs:
           ECR_REPOSITORY: scanner
           IMAGE_TAG: latest
         run: |
+          # 캐시 디렉토리 생성
+          mkdir -p /tmp/.buildx-cache
+          
+          # 이미지 빌드 및 ECR로 푸시
           docker buildx build \
             --platform linux/x86_64 \
             --cache-from=type=local,src=/tmp/.buildx-cache \
             --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
-            -t $ECR_REPOSITORY:$IMAGE_TAG \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             --push .
           
-          # 기존 캐시 삭제 후 새로운 캐시로 교체
+          # 캐시 교체
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
 
       - name: Update Lambda function with new ECR image
         env:
