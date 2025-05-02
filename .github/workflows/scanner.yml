@@ -50,11 +50,11 @@ jobs:
           
           # 이미지 빌드 및 ECR로 푸시
           docker buildx build \
-            --platform linux/x86_64 \
-            --cache-from=type=local,src=/tmp/.buildx-cache \
-            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            --push .
+          --platform linux/x86_64 \
+          --cache-from=type=local,src=/tmp/.buildx-cache \
+          --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+          --output type=image,push=true .
           
           # 캐시 교체
           rm -rf /tmp/.buildx-cache
