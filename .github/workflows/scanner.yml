@@ -36,32 +36,49 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
       
-      - name: Build and push Docker image to ECR
-        uses: docker/build-push-action@v5
-        with:
-          context: ./lambda-selenium-docker-scanner
-          push: true
-          tags: ${{ steps.login-ecr.outputs.registry }}/scanner:latest
-          platforms: linux/amd64  # AWS Lambda가 지원하는 아키텍처 지정
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-          # Lambda 컨테이너 이미지 요구사항을 충족하도록 설정
-          build-args: |
-            LAMBDA_TASK_ROOT=/var/task
-      
-      - name: Move cache
+      - name: Build and push Docker image for Lambda
+        working-directory: ./lambda-selenium-docker-scanner
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: scanner
+          IMAGE_TAG: latest
         run: |
+          # 캐시 사용을 위한 Buildx 설정
+          docker buildx create --use
+          
+          # AWS Lambda 호환 이미지 빌드 및 푸시
+          docker buildx build \
+            --platform=linux/amd64 \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            --push \
+            .
+            
+          # 캐시 관리
           rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+          mkdir -p /tmp/.buildx-cache
+          if [ -d "/tmp/.buildx-cache-new" ]; then
+            mv /tmp/.buildx-cache-new/* /tmp/.buildx-cache/ || true
+            rm -rf /tmp/.buildx-cache-new
+          fi
       
+      # Lambda 함수 업데이트 전에 이미지 디제스트 가져오기
+      - name: Get image digest
+        id: image-digest
+        run: |
+          DIGEST=$(aws ecr describe-images --repository-name scanner --image-ids imageTag=latest --query 'imageDetails[0].imageDigest' --output text)
+          echo "DIGEST=$DIGEST" >> $GITHUB_ENV
+          echo "Image Digest: $DIGEST"
+      
+      # Lambda 함수 업데이트
       - name: Update Lambda function with new ECR image
         env:
           LAMBDA_FUNCTION_NAME: scanner
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: scanner
-          IMAGE_TAG: latest
         run: |
           aws lambda update-function-code \
             --function-name $LAMBDA_FUNCTION_NAME \
-            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY@$DIGEST \
             --region ap-northeast-2
