@@ -61,14 +61,14 @@ class QUASAR_ZONE(PAGES):
                 created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
                 item_name = driver.find_element(By.CSS_SELECTOR, "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dt > div:nth-child(1) > h1").text.split()[2:]
                 item_name = " ".join(item_name)
-                table = driver.find_element(By.TAG_NAME, "table")
-                rows = table.find_elements(By.TAG_NAME, "tr")
                 created_at = driver.find_element(By.CSS_SELECTOR, "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dt > div.util-area > p > span").text
                 content = driver.find_element(By.CSS_SELECTOR, "#new_contents").text
                 comment = list(map(lambda x: x.text, driver.find_elements(By.CSS_SELECTOR, "#content > div.sub-content-wrap > div.left-con-wrap > div.reply-wrap > div.reply-area > div.reply-list")))
                 category = driver.find_element(By.XPATH, "/html/body/div[2]/div/div/div/div[1]/div[1]/div[3]/div/dl/dt/div[3]/div/div[1]").text
-                details = [row.text for row in rows]
-                shopping_mall_link, shopping_mall, price, delivery, *_ = list(map(lambda x: "".join(x.split()[1:]), details))
+                shopping_mall_link = driver.find_elements(By.XPATH, "/html/body/div[2]/div/div/div/div[1]/div[1]/div[4]/div/dl/dd/table/tbody/tr[1]/td").text
+                shopping_mall = driver.find_elements(By.XPATH, "/html/body/div[2]/div/div/div/div[1]/div[1]/div[4]/div/dl/dd/table/tbody/tr[2]/td").text
+                price = driver.find_elements(By.XPATH, "/html/body/div[2]/div/div/div/div[1]/div[1]/div[4]/div/dl/dd/table/tbody/tr[3]/td").text
+                delivery = driver.find_elements(By.XPATH, "/html/body/div[2]/div/div/div/div[1]/div[1]/div[4]/div/dl/dd/table/tbody/tr[4]/td").text
                 
             except Exception as e:
                 print(f"fail get item link {item_link} {str(e)}")
