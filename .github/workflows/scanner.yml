@@ -1,14 +1,15 @@
 name: Build and Push Docker Image scanner
+
 on:
   push:
     branches:
       - main
     paths:
       - 'lambda-selenium-docker-scanner/**'
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -17,20 +18,25 @@ jobs:
         uses: docker/setup-buildx-action@v3
         with:
           install: true
-          buildkitd-flags: --debug
-          driver-opts: |
-            image=moby/buildkit:latest
-            
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
-          
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Restore Docker cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-cache
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
       - name: Create persistent Buildx builder
         run: |
@@ -41,28 +47,22 @@ jobs:
           docker buildx build \
             --builder lambda-builder \
             --platform linux/amd64 \
-            --cache-from type=gha \
-            --cache-to type=gha,mode=max \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache \
             --output type=docker \
             -t scanner:build \
             ./lambda-selenium-docker-scanner
-      
+
       - name: Tag Docker image
         run: |
           docker tag scanner:build ${{ steps.login-ecr.outputs.registry }}/scanner:latest
-      
+
       - name: Push Docker image
         run: |
           docker push ${{ steps.login-ecr.outputs.registry }}/scanner:latest
 
-      - name: Update Lambda function with new ECR image
-        env:
-          LAMBDA_FUNCTION_NAME: scanner
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: scanner
-          IMAGE_TAG: latest
-        run: |
-          aws lambda update-function-code \
-            --function-name $LAMBDA_FUNCTION_NAME \
-            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            --region ap-northeast-2
+      - name: Save Docker cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-cache
