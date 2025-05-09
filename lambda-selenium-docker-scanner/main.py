@@ -32,7 +32,7 @@ QUASAR_ZONE_LINK = "https://quasarzone.com/bbs/qb_saleinfo"
 FM_KOREA_LINK = "https://www.fmkorea.com/hotdeal"
 
 session = requests.Session()
-retry = Retry(connect=3, backoff_factor=0.5)
+retry = Retry(connect=4, backoff_factor=0.5)
 adapter = HTTPAdapter(max_retries=retry)
 session.mount('http://', adapter)
 session.mount('https://', adapter)
