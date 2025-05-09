@@ -10,12 +10,13 @@ RUN /usr/bin/bash /tmp/install-browser.sh
 FROM public.ecr.aws/lambda/python:3.9 AS base
 
 COPY chrome-deps.txt /tmp/
-RUN yum install -y $(cat /tmp/chrome-deps.txt)
+RUN yum install -y $(cat /tmp/chrome-deps.txt) && \
+    yum clean all && rm -rf /var/cache/yum
 
 # Install Python dependencies for function
 COPY requirements.txt /tmp/
-RUN python3 -m pip install --upgrade pip -q
-RUN python3 -m pip install -r /tmp/requirements.txt -q
+RUN python3 -m pip install --upgrade pip -q && \
+    python3 -m pip install --no-cache-dir -r /tmp/requirements.txt -q
 
 COPY --from=stage /opt/chrome /opt/chrome
 COPY --from=stage /opt/chromedriver /opt/chromedriver
