@@ -25,7 +25,7 @@ DB_PASSWORD = os.environ["DB_PASSWORD"]
 DB_PORT = os.environ["DB_PORT"]
 DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
 SNS_ARN = os.environ["SNS_ARN"]
-print(SNS_ARN)
+
 ARCA_LIVE_LINK = "https://arca.live/b/hotdeal"
 RULI_WEB_LINK = "https://bbs.ruliweb.com/market/board/1020?view=default"
 PPOM_PPU_LINK = "https://www.ppomppu.co.kr/zboard/zboard.php?id=ppomppu"
@@ -94,10 +94,10 @@ class PAGES:
             message_body = json.dumps(_item_link_list)
             scanned_site = self.__class__.__name__
             num_item_links = str(len(_item_link_list))
-            print(topic_arn)
+            
             response = sns.publish(
                 TopicArn=topic_arn,
-                MessageBody=message_body,
+                Message=message_body,
                 MessageAttributes = {
                     "is_scanning" : {'DataType': 'String', 'StringValue': "1"},
                     "scanned_site" : {'DataType': 'String', 'StringValue': scanned_site},
