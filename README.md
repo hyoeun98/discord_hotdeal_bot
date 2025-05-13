@@ -15,7 +15,7 @@
 - 기술 스택 및 개발 상세 내용
     - 게시글 목록 수집 및 각 상품 정보 크롤링 - selenium 사용
     - 에러 발생 시 로깅 - slack 사용
-    - message broker - aws SQS 사용
+    - message broker - ~aws SQS~ aws SNS 사용(필요없는 polling이 너무 빈번해 교체)
     - DB - postgresql 사용
     - Hash tag 생성 - ChatGPT-4.1 nano
 
