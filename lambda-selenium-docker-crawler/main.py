@@ -265,7 +265,7 @@ def handler(event, context):
     try:
         driver = set_driver()
         
-        message = event['Records'][0]['Sns']['messageAttributes']
+        message = event['Records'][0]['Sns']['MessageAttributes']
         scanned_site = message['scanned_site']['Value']
         item_link_list = ast.literal_eval(event['Records'][0]['Sns']['body'])
         
