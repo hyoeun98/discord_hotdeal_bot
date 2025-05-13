@@ -265,9 +265,9 @@ def handler(event, context):
     try:
         driver = set_driver()
         
-        message = event['Records'][0]['messageAttributes']
-        scanned_site = message['scanned_site']['stringValue']
-        item_link_list = ast.literal_eval(event['Records'][0]['body'])
+        message = event['Records'][0]['Sns']['messageAttributes']
+        scanned_site = message['scanned_site']['Value']
+        item_link_list = ast.literal_eval(event['Records'][0]['Sns']['body'])
         
         # 크롤링 클래스 선택
         crawler_class = globals()[scanned_site]
