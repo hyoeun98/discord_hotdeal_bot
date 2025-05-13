@@ -267,7 +267,7 @@ def handler(event, context):
         
         message = event['Records'][0]['Sns']['MessageAttributes']
         scanned_site = message['scanned_site']['Value']
-        item_link_list = ast.literal_eval(event['Records'][0]['Sns']['body'])
+        item_link_list = ast.literal_eval(event['Records'][0]['Sns']['Message'])
         
         # 크롤링 클래스 선택
         crawler_class = globals()[scanned_site]
