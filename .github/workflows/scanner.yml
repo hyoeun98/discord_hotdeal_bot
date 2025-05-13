@@ -66,3 +66,9 @@ jobs:
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-cache
+
+      - name: Update Lambda function to use new image
+        run: |
+          aws lambda update-function-code \
+            --function-name scanner \
+            --image-uri ${{ steps.login-ecr.outputs.registry }}/scanner:latest
