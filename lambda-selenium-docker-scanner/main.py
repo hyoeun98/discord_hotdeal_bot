@@ -94,6 +94,7 @@ class PAGES:
             message_body = json.dumps(_item_link_list)
             scanned_site = self.__class__.__name__
             num_item_links = str(len(_item_link_list))
+            print(topic_arn)
             response = sns.publish(
                 TopicArn=topic_arn,
                 MessageBody=message_body,
