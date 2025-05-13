@@ -24,6 +24,7 @@ DB_USER = os.environ["DB_USER"]
 DB_PASSWORD = os.environ["DB_PASSWORD"]
 DB_PORT = os.environ["DB_PORT"]
 DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
+SNS_ARN = os.environ["SNS_ARN"]
 
 ARCA_LIVE_LINK = "https://arca.live/b/hotdeal"
 RULI_WEB_LINK = "https://bbs.ruliweb.com/market/board/1020?view=default"
@@ -83,9 +84,9 @@ class PAGES:
         self.item_link_list = []
         
     def pub_item_links(self):
-        """SQS로 Scan 정보 Publish"""
-        sqs = boto3.client('sqs', region_name=REGION)
-        queue_url = QUEUE_URL
+        """SNS로 Scan 정보 Publish"""
+        sns = boto3.client('sns', region_name=REGION)
+        topic_arn = SNS_ARN
         db_item_links = self.db_get_item_links()
         _item_link_list = list(set(self.item_link_list) - set(db_item_links))
         print(f"new item links : {_item_link_list}")
@@ -93,8 +94,8 @@ class PAGES:
             message_body = json.dumps(_item_link_list)
             scanned_site = self.__class__.__name__
             num_item_links = str(len(_item_link_list))
-            response = sqs.send_message(
-                QueueUrl=queue_url,
+            response = sns.publish(
+                TopicArn=topic_arn,
                 MessageBody=message_body,
                 MessageAttributes = {
                     "is_scanning" : {'DataType': 'String', 'StringValue': "1"},
