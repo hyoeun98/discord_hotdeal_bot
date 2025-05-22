@@ -9,7 +9,9 @@
     - 키워드 설정 시 멘션으로 알림
     - 멘션으로 알린 메세지는 thread에 따로 모아둠
       
-    ![example](https://github.com/user-attachments/assets/66c59425-f8ad-494f-a691-344d876a2ba0)
+    ![example_message](https://github.com/user-attachments/assets/66c59425-f8ad-494f-a691-344d876a2ba0)
+  ![example_thread_message](https://github.com/user-attachments/assets/915f94d7-c228-40c5-ad00-ab927d971c03)
+
 
 
 - 기술 스택 및 개발 상세 내용
