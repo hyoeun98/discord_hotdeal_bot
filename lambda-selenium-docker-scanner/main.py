@@ -25,6 +25,7 @@ DB_PASSWORD = os.environ["DB_PASSWORD"]
 DB_PORT = os.environ["DB_PORT"]
 DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
 SNS_ARN = os.environ["SNS_ARN"]
+TREND_SNS_ARN = os.environ["TREND_SNS_ARN"]
 
 ARCA_LIVE_LINK = "https://arca.live/b/hotdeal"
 RULI_WEB_LINK = "https://bbs.ruliweb.com/market/board/1020?view=default"
@@ -110,18 +111,47 @@ class PAGES:
         else:
             print("not found new item links")
         
-    def test_pub_item_links(self):
-        sqs = boto3.client('sqs', region_name=REGION)
-        queue_url = "https://sqs.ap-northeast-2.amazonaws.com/387095013789/test"
-        print(f"new item links : {self.trend_item_link_list}")
-        if self.trend_item_link_list:
-            message_body = json.dumps(self.trend_item_link_list)
+    def pub_item_links(self):
+        """SNS로 Scan 정보 Publish"""
+        sns = boto3.client('sns', region_name=REGION)
+        topic_arn = SNS_ARN
+        db_item_links = self.db_get_item_links()
+        _item_link_list = list(set(self.item_link_list) - set(db_item_links))
+        print(f"new item links : {_item_link_list}")
+        if _item_link_list:
+            message_body = json.dumps(_item_link_list)
             scanned_site = self.__class__.__name__
-            num_item_links = str(len(self.trend_item_link_list))
+            num_item_links = str(len(_item_link_list))
             
-            response = sqs.send_message(
-                QueueUrl=queue_url,
-                MessageBody=message_body,
+            response = sns.publish(
+                TopicArn=topic_arn,
+                Message=message_body,
+                MessageAttributes = {
+                    "is_scanning" : {'DataType': 'String', 'StringValue': "1"},
+                    "scanned_site" : {'DataType': 'String', 'StringValue': scanned_site},
+                    "num_item_links" : {'DataType': 'String', 'StringValue': num_item_links}
+                    
+                }
+            )
+            print(response)
+        else:
+            print("not found new item links")
+    
+    def pub_trend_item_links(self):
+        """SNS로 인기글 정보 Publish"""
+        sns = boto3.client('sns', region_name=REGION)
+        topic_arn = TREND_SNS_ARN
+        db_item_links = self.db_get_item_links()
+        _item_link_list = list(set(self.item_link_list) - set(db_item_links))
+        print(f"new item links : {_item_link_list}")
+        if _item_link_list:
+            message_body = json.dumps(_item_link_list)
+            scanned_site = self.__class__.__name__
+            num_item_links = str(len(_item_link_list))
+            
+            response = sns.publish(
+                TopicArn=topic_arn,
+                Message=message_body,
                 MessageAttributes = {
                     "is_scanning" : {'DataType': 'String', 'StringValue': "1"},
                     "scanned_site" : {'DataType': 'String', 'StringValue': scanned_site},
@@ -152,7 +182,25 @@ class PAGES:
         except Exception as e:
             print(str(e))
         
+    def db_get_trend_item_links(self):
+        try:
+            conn = psycopg2.connect(**db_config)
+            cursor = conn.cursor()
+            table_name = self.__class__.__name__.lower()
+            cursor.execute(
+                f"""
+                SELECT *
+                FROM {table_name}_trend_item_links
+                WHERE id > (SELECT MAX(id) - 100 FROM {table_name}_item_links);
+                """
+            )
+            rows = cursor.fetchall()
+            db_item_links = [i[0] for i in rows]
+            return db_item_links
         
+        except Exception as e:
+            print(str(e))
+            
             
 class QUASAR_ZONE(PAGES):
     def __init__(self):
