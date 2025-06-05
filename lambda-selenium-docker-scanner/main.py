@@ -111,7 +111,7 @@ class PAGES:
             print("not found new item links")
         
     def test_pub_item_links(self):
-        sns = boto3.client('sns', region_name=REGION)
+        sns = boto3.client('sqs', region_name=REGION)
         topic_arn = "arn:aws:sqs:ap-northeast-2:387095013789:test"
         print(f"new item links : {self.trend_item_link_list}")
         if self.trend_item_link_list:
@@ -119,7 +119,7 @@ class PAGES:
             scanned_site = self.__class__.__name__
             num_item_links = str(len(self.trend_item_link_list))
             
-            response = sns.publish(
+            response = sqs.publish(
                 TopicArn=topic_arn,
                 Message=message_body,
                 MessageAttributes = {
