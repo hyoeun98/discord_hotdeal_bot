@@ -82,6 +82,7 @@ class PAGES:
     """각 Page들의 SuperClass"""
     def __init__(self):
         self.item_link_list = []
+        self.trend_item_link_list = []
         
     def pub_item_links(self):
         """SNS로 Scan 정보 Publish"""
@@ -109,6 +110,29 @@ class PAGES:
         else:
             print("not found new item links")
         
+    def test_pub_item_links(self):
+        sns = boto3.client('sns', region_name=REGION)
+        topic_arn = "arn:aws:sqs:ap-northeast-2:387095013789:test"
+        print(f"new item links : {self.trend_item_link_list}")
+        if self.trend_item_link_list:
+            message_body = json.dumps(self.trend_item_link_list)
+            scanned_site = self.__class__.__name__
+            num_item_links = str(len(self.trend_item_link_list))
+            
+            response = sns.publish(
+                TopicArn=topic_arn,
+                Message=message_body,
+                MessageAttributes = {
+                    "is_scanning" : {'DataType': 'String', 'StringValue': "1"},
+                    "scanned_site" : {'DataType': 'String', 'StringValue': scanned_site},
+                    "num_item_links" : {'DataType': 'String', 'StringValue': num_item_links}
+                    
+                }
+            )
+            print(response)
+        else:
+            print("not found new item links")
+            
     def db_get_item_links(self):
         try:
             conn = psycopg2.connect(**db_config)
@@ -273,8 +297,15 @@ class PPOM_PPU(PAGES):
                 print(f"fail get item links {item_link} {e}")
                 break
         
+        for item in soup.find_all(class_= "baseList-c")[1:20]: # 댓글이 달린 게시글만
+            if "popup_comment.php" not in item.get("onclick", ""): # 공지, 광고 제외
+                if int(item.text) >= 1: # 댓글 10개 이상
+                    trend_item_link = "https://www.ppomppu.co.kr/zboard/view.php" + item.attrs["onclick"][13:-3]
+                    self.trend_item_link_list.append(trend_item_link)
+            
         try:                
             self.pub_item_links()
+            self.test_pub_item_links()
         except Exception as e:
             print(f"fail pub item links {e}")
 
