@@ -1,10 +1,5 @@
 FROM public.ecr.aws/lambda/python:3.9 AS stage
 
-# Install Python dependencies for function
-COPY requirements.txt /tmp/
-RUN python3 -m pip install --upgrade pip -q
-RUN python3 -m pip install -r /tmp/requirements.txt -q
-
 RUN yum install -y -q sudo unzip
 ENV CHROMIUM_VERSION=1002910
 
@@ -17,7 +12,11 @@ FROM public.ecr.aws/lambda/python:3.9 AS base
 COPY chrome-deps.txt /tmp/
 RUN yum install -y $(cat /tmp/chrome-deps.txt)
 
-
+# Install Python dependencies for function
+COPY requirements.txt /tmp/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m pip install --upgrade pip -q && \
+    python3 -m pip install -r /tmp/requirements.txt -q
 
 COPY --from=stage /opt/chrome /opt/chrome
 COPY --from=stage /opt/chromedriver /opt/chromedriver
