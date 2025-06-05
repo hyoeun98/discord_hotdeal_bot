@@ -210,8 +210,6 @@ class PPOM_PPU(PAGES):
                 created_at = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/div[3]/div/ul/li[2]").text.lstrip("등록일 ")
                 shopping_mall_link = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/div[3]/div/ul/li[4]/a").text
                 shopping_mall = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/div[3]/h1/span").text
-                print("len", len(comment))
-                print(comment)
                 
             except Exception as e:
                 # major한 shopping_mall이 아니면 path가 달라짐
