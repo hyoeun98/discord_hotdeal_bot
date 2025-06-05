@@ -143,7 +143,7 @@ class PAGES:
         topic_arn = TREND_SNS_ARN
         db_item_links = self.db_get_trend_item_links()
         _item_link_list = list(set(self.item_link_list) - set(db_item_links))
-        print(f"new item links : {_item_link_list}")
+        print(f"new trend item links : {_item_link_list}")
         if _item_link_list:
             message_body = json.dumps(_item_link_list)
             scanned_site = self.__class__.__name__
@@ -272,6 +272,21 @@ class ARCA_LIVE(PAGES):
                 item_link = "err"
                 item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
                 item_link = item.get_attribute("href")
+                
+                comment_count = item.find_element(By.CLASS_NAME, "comment-count")
+                comment_count = int(comment_count.text)
+                if comment_count >= 10:
+                    self.trend_item_link_list.append(trend_item_link)
+                
+            except Exception as e:
+                print(f"no comment {item_link}")
+            
+        for i in range(2, 27):
+            try:
+                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/a"
+                trend_item_link = "err"
+                item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
+                trend_item_link = item.get_attribute("href")
                 self.item_link_list.append(item_link)
                 print(item_link)
             except Exception as e:
