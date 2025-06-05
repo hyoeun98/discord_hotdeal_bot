@@ -269,7 +269,7 @@ class ARCA_LIVE(PAGES):
         
         for i in range(2, 27):
             try:
-                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div"
+                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
                 item_link = "err"
                 item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
                 item_link = item.get_attribute("href")
@@ -283,7 +283,7 @@ class ARCA_LIVE(PAGES):
             
         for i in range(2, 27):
             try:
-                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div"
+                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
                 trend_item_link = "err"
                 item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
                 trend_item_link = item.get_attribute("href")
