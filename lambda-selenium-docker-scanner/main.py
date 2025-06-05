@@ -220,9 +220,16 @@ class QUASAR_ZONE(PAGES):
                 find_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div > div.market-info-list-cont > p > a"
                 item_link = "err"
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
+                
                 item_link = item.get_attribute("href")
                 self.item_link_list.append(item_link)
                 print(item_link)
+                
+                comment_count = item.find_element(By.CLASS_NAME, "board-list-comment")
+                comment_count = int(comment_count.text)
+                if comment_count >= 10:
+                    self.trend_item_link_list.append(item_link)
+                    
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
@@ -230,6 +237,7 @@ class QUASAR_ZONE(PAGES):
         
         try:                
             self.pub_item_links()
+            self.pub_trend_item_links()
         except Exception as e:
             print(f"fail pub item links {e}")
                         
@@ -314,16 +322,24 @@ class FM_KOREA(PAGES):
                 find_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i}) > div > h3 > a"
                 item_link = "err"
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
+                
                 item_link = item.get_attribute("href")
                 self.item_link_list.append(item_link)
                 print(item_link)
+                
+                comment_count = item.find_element(By.CLASS_NAME, "comment_count")
+                comment_count = int(comment_count.text[1:-1])
+                if comment_count >= 10:
+                    self.trend_item_link_list.append(item_link)
+                
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
                 break
-
+            
         try:                
             self.pub_item_links()
+            self.pub_trend_item_links()
         except Exception as e:
             print(f"fail pub item links {e}")
                 
