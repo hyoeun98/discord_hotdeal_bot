@@ -191,7 +191,7 @@ class PAGES:
                 f"""
                 SELECT *
                 FROM {table_name}_trend_item_links
-                WHERE id > (SELECT MAX(id) - 100 FROM {table_name}_item_links);
+                WHERE id > (SELECT MAX(id) - 100 FROM {table_name}_trend_item_links);
                 """
             )
             rows = cursor.fetchall()
@@ -242,8 +242,9 @@ class QUASAR_ZONE(PAGES):
                 if comment_count >= 10:
                     self.trend_item_link_list.append(trend_item_link)
                     
+                print(f"{trend_item_link} num comment : {comment_count}")
             except Exception as e:
-                print(f"no comment {item_link} {e}")
+                print(f"no comment {item_link}")
             
         try:                
             self.pub_item_links()
@@ -355,9 +356,10 @@ class FM_KOREA(PAGES):
                 
                 if comment_count >= 10:
                     self.trend_item_link_list.append(trend_item_link)
-                
+                    
+                print(f"{trend_item_link} num comment : {comment_count}")
             except Exception as e:
-                print(f"no comment {item_link} {e}")
+                print(f"no comment {item_link}")
 
             
         try:                
@@ -386,7 +388,7 @@ class PPOM_PPU(PAGES):
         
         for item in soup.find_all(class_= "baseList-c")[1:20]: # 댓글이 달린 게시글만
             if "popup_comment.php" not in item.get("onclick", ""): # 공지, 광고 제외
-                if int(item.text) >= 1: # 댓글 10개 이상
+                if int(item.text) >= 10: # 댓글 10개 이상
                     trend_item_link = "https://www.ppomppu.co.kr/zboard/view.php" + item.attrs["onclick"][13:-3]
                     self.trend_item_link_list.append(trend_item_link)
             
