@@ -119,9 +119,9 @@ class PAGES:
             scanned_site = self.__class__.__name__
             num_item_links = str(len(self.trend_item_link_list))
             
-            response = sqs.publish(
-                TopicArn=topic_arn,
-                Message=message_body,
+            response = sqs.send_message(
+                QueueUrl=topic_arn,
+                MessageBody=message_body,
                 MessageAttributes = {
                     "is_scanning" : {'DataType': 'String', 'StringValue': "1"},
                     "scanned_site" : {'DataType': 'String', 'StringValue': scanned_site},
