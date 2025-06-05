@@ -275,12 +275,10 @@ class ARCA_LIVE(PAGES):
                 item_link = item.get_attribute("href")
                 self.item_link_list.append(item_link)
                 print(item_link)
-                
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
                 break
-            
         for i in range(2, 27):
             try:
                 find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
@@ -288,7 +286,7 @@ class ARCA_LIVE(PAGES):
                 item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
                 trend_item_link = item.get_attribute("href")
                 
-                comment_count = item.find_element(By.CLASS_NAME, "comment-count")
+                comment_count = item.find_element(By.CLASS_NAME, "info").find_element(By.CLASS_NAME, "comment-count")
                 comment_count = int(comment_count.text)
                 if comment_count >= 10:
                     self.trend_item_link_list.append(trend_item_link)
