@@ -141,7 +141,7 @@ class PAGES:
         """SNS로 인기글 정보 Publish"""
         sns = boto3.client('sns', region_name=REGION)
         topic_arn = TREND_SNS_ARN
-        db_item_links = self.db_get_item_links()
+        db_item_links = self.db_get_trend_item_links()
         _item_link_list = list(set(self.item_link_list) - set(db_item_links))
         print(f"new item links : {_item_link_list}")
         if _item_link_list:
@@ -161,7 +161,7 @@ class PAGES:
             )
             print(response)
         else:
-            print("not found new item links")
+            print("not found new trend item links")
             
     def db_get_item_links(self):
         try:
