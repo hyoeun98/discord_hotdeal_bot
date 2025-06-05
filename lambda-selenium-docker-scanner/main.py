@@ -269,10 +269,10 @@ class ARCA_LIVE(PAGES):
         
         for i in range(2, 27):
             try:
-                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/a"
-                trend_item_link = "err"
+                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div"
+                item_link = "err"
                 item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
-                trend_item_link = item.get_attribute("href")
+                item_link = item.get_attribute("href")
                 self.item_link_list.append(item_link)
                 print(item_link)
                 
@@ -284,9 +284,9 @@ class ARCA_LIVE(PAGES):
         for i in range(2, 27):
             try:
                 find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div"
-                item_link = "err"
+                trend_item_link = "err"
                 item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
-                item_link = item.get_attribute("href")
+                trend_item_link = item.get_attribute("href")
                 
                 comment_count = item.find_element(By.CLASS_NAME, "comment-count")
                 comment_count = int(comment_count.text)
