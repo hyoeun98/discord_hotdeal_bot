@@ -34,3 +34,4 @@
 - ~item 대분류 : chatgpt 4o mini or gemini 1.5 Flash-8B 사용~ ChatGPT 4.1 nano 사용
 - item 분류 시 대표적인 class 추리기
 - ~중요한 메세지를 모아두는 thread 생성~
+- scan 시 댓글, 조회수 등을 기준으로 인기 게시글 선정하여 알리기
