@@ -243,6 +243,7 @@ class QUASAR_ZONE(PAGES):
                     self.trend_item_link_list.append(trend_item_link)
                     
                 print(f"{trend_item_link} num comment : {comment_count}")
+                
             except Exception as e:
                 print(f"no comment {item_link}")
             
@@ -269,6 +270,20 @@ class ARCA_LIVE(PAGES):
         for i in range(2, 27):
             try:
                 find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/a"
+                trend_item_link = "err"
+                item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
+                trend_item_link = item.get_attribute("href")
+                self.item_link_list.append(item_link)
+                print(item_link)
+                
+            except Exception as e:
+                print(f"fail get item links {item_link} {e}")
+                capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
+                break
+            
+        for i in range(2, 27):
+            try:
+                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/a"
                 item_link = "err"
                 item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
                 item_link = item.get_attribute("href")
@@ -277,25 +292,15 @@ class ARCA_LIVE(PAGES):
                 comment_count = int(comment_count.text)
                 if comment_count >= 10:
                     self.trend_item_link_list.append(trend_item_link)
+                    
+                print(f"{trend_item_link} num comment : {comment_count}")
                 
             except Exception as e:
                 print(f"no comment {item_link}")
-            
-        for i in range(2, 27):
-            try:
-                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/a"
-                trend_item_link = "err"
-                item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
-                trend_item_link = item.get_attribute("href")
-                self.item_link_list.append(item_link)
-                print(item_link)
-            except Exception as e:
-                print(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
-                break
 
         try:                
             self.pub_item_links()
+            self.pub_trend_item_links()
         except Exception as e:
             print(f"fail pub item links {e}")
             
@@ -376,7 +381,6 @@ class FM_KOREA(PAGES):
             except Exception as e:
                 print(f"no comment {item_link}")
 
-            
         try:                
             self.pub_item_links()
             self.pub_trend_item_links()
@@ -397,6 +401,7 @@ class PPOM_PPU(PAGES):
                 item_link = item_link.replace("&&", "&")
                 self.item_link_list.append(item_link)
                 print(item_link)
+                
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
                 break
@@ -406,7 +411,8 @@ class PPOM_PPU(PAGES):
                 if int(item.text) >= 10: # 댓글 10개 이상
                     trend_item_link = "https://www.ppomppu.co.kr/zboard/view.php" + item.attrs["onclick"][13:-3]
                     self.trend_item_link_list.append(trend_item_link)
-            
+                    print(f"{trend_item_link} num comment : {item.text}")
+                    
         try:                
             self.pub_item_links()
             self.pub_trend_item_links()
