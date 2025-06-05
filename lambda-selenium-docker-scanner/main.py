@@ -369,7 +369,7 @@ class PPOM_PPU(PAGES):
             
         try:                
             self.pub_item_links()
-            self.test_pub_item_links()
+            self.pub_trend_item_links()
         except Exception as e:
             print(f"fail pub item links {e}")
 
