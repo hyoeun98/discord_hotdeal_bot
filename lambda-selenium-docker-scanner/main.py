@@ -112,7 +112,7 @@ class PAGES:
         
     def test_pub_item_links(self):
         sqs = boto3.client('sqs', region_name=REGION)
-        topic_arn = "arn:aws:sqs:ap-northeast-2:387095013789:test"
+        queue_url = "https://sqs.ap-northeast-2.amazonaws.com/387095013789/test"
         print(f"new item links : {self.trend_item_link_list}")
         if self.trend_item_link_list:
             message_body = json.dumps(self.trend_item_link_list)
@@ -120,7 +120,7 @@ class PAGES:
             num_item_links = str(len(self.trend_item_link_list))
             
             response = sqs.send_message(
-                QueueUrl=topic_arn,
+                QueueUrl=queue_url,
                 MessageBody=message_body,
                 MessageAttributes = {
                     "is_scanning" : {'DataType': 'String', 'StringValue': "1"},
