@@ -272,6 +272,7 @@ class ARCA_LIVE(PAGES):
                 find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
                 item_link = "err"
                 item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
+                print(item.text)
                 item_link = item.get_attribute("href")
                 self.item_link_list.append(item_link)
                 print(item_link)
