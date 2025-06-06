@@ -220,7 +220,7 @@ class QUASAR_ZONE(PAGES):
                 find_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div > div.market-info-list-cont > p > a"
                 item_link = "err"
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
-                
+                print(item.text)
                 item_link = item.get_attribute("href")
                 self.item_link_list.append(item_link)
                 print(item_link)
@@ -410,7 +410,8 @@ class PPOM_PPU(PAGES):
                 if int(item.text) >= 10: # 댓글 10개 이상
                     trend_item_link = "https://www.ppomppu.co.kr/zboard/view.php" + item.attrs["onclick"][13:-3]
                     self.trend_item_link_list.append(trend_item_link)
-                    print(f"{trend_item_link} num comment : {item.text}")
+                print(f"{trend_item_link} num comment : {item.text}")
+                
                     
         try:                
             self.pub_item_links()
