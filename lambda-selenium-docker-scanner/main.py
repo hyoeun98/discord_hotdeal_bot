@@ -281,12 +281,13 @@ class ARCA_LIVE(PAGES):
                 break
         for i in range(2, 27):
             try:
-                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
+                find_link_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
+                find_comment_count_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a/span[2]/span"
                 trend_item_link = "err"
-                item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
+                item = get_item_driver.find_element(By.XPATH, find_link_xpath_selector)
                 trend_item_link = item.get_attribute("href")
                 
-                comment_count = item.find_element(By.CLASS_NAME, "info").find_element(By.CLASS_NAME, "comment-count")
+                comment_count = get_item_driver.find_element(By.XPATH, find_comment_count_xpath_selector)
                 comment_count = int(comment_count.text)
                 if comment_count >= 10:
                     self.trend_item_link_list.append(trend_item_link)
