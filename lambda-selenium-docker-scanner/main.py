@@ -230,6 +230,7 @@ class QUASAR_ZONE(PAGES):
                 capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
                 break
         
+        get_item_driver.implicitly_wait(1)
         for i in range(1, 31):
             try:
                 find_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div > div.market-info-list-cont > p > a"
@@ -243,10 +244,12 @@ class QUASAR_ZONE(PAGES):
                     self.trend_item_link_list.append(trend_item_link)
                     
                 print(f"{trend_item_link} num comment : {comment_count}")
-                
+         
             except Exception as e:
                 print(f"no comment {item_link}")
-            
+                
+        get_item_driver.implicitly_wait(10)    
+        
         try:                
             self.pub_item_links()
             self.pub_trend_item_links()
@@ -280,6 +283,8 @@ class ARCA_LIVE(PAGES):
                 print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
                 break
+            
+        get_item_driver.implicitly_wait(1)    
         for i in range(2, 27):
             try:
                 find_link_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
@@ -297,7 +302,9 @@ class ARCA_LIVE(PAGES):
                 
             except Exception as e:
                 print(f"no comment {trend_item_link}")
-
+                
+        get_item_driver.implicitly_wait(10)
+        
         try:                
             self.pub_item_links()
             self.pub_trend_item_links()
@@ -353,7 +360,7 @@ class FM_KOREA(PAGES):
                 find_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i}) > div > h3 > a"
                 item_link = "err"
                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
-                
+                print(item.text)
                 item_link = item.get_attribute("href")
                 self.item_link_list.append(item_link)
                 print(item_link)
@@ -364,6 +371,7 @@ class FM_KOREA(PAGES):
                 capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
                 break
         
+        get_item_driver.implicitly_wait(1)
         for i in range(1, 21):
             try:
                 find_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i}) > div > h3 > a"
@@ -381,6 +389,8 @@ class FM_KOREA(PAGES):
             except Exception as e:
                 print(f"no comment {item_link}")
 
+        get_item_driver.implicitly_wait(10)
+        
         try:                
             self.pub_item_links()
             self.pub_trend_item_links()
