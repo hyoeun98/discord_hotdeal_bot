@@ -288,14 +288,14 @@ class ARCA_LIVE(PAGES):
                 trend_item_link = item.get_attribute("href")
                 
                 comment_count = get_item_driver.find_element(By.XPATH, find_comment_count_xpath_selector)
-                comment_count = int(comment_count.text)
+                comment_count = int(comment_count.text[1:-1])
                 if comment_count >= 10:
                     self.trend_item_link_list.append(trend_item_link)
                     
                 print(f"{trend_item_link} num comment : {comment_count}")
                 
             except Exception as e:
-                print(f"no comment {item_link}")
+                print(f"no comment {trend_item_link}")
 
         try:                
             self.pub_item_links()
