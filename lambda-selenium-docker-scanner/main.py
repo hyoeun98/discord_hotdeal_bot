@@ -387,7 +387,7 @@ class FM_KOREA(PAGES):
                     
                 print(f"{trend_item_link} num comment : {comment_count}")
             except Exception as e:
-                print(f"no comment {item_link}")
+                print(f"no comment {trend_item_link}")
 
         get_item_driver.implicitly_wait(10)
         
@@ -421,8 +421,10 @@ class PPOM_PPU(PAGES):
                 if int(item.text) >= 10: # 댓글 10개 이상
                     trend_item_link = "https://www.ppomppu.co.kr/zboard/view.php" + item.attrs["onclick"][13:-3]
                     self.trend_item_link_list.append(trend_item_link)
-                print(f"{trend_item_link} num comment : {item.text}")
-                
+                try:
+                    print(f"{trend_item_link} num comment : {item.text}")
+                except:
+                    print(f"no comment {trend_item_link}")
                     
         try:                
             self.pub_item_links()
