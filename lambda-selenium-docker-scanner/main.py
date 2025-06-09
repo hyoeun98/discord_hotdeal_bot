@@ -15,6 +15,7 @@ from collections import defaultdict
 import psycopg2
 from datetime import datetime
 from stealthenium import stealth
+from ABC import ABC, abstractmethod
 
 QUEUE_URL = os.environ["QUEUE_URL"]
 REGION = os.environ.get("REGION", "ap-northeast-2")
@@ -79,12 +80,12 @@ def capture_and_send_screenshot(driver, file_name):
     print(f"response code : {response.status_code}")
     print(response.text)
 
-class PAGES: 
+class PAGES(ABC): 
     """각 Page들의 SuperClass"""
-    def __init__(self):
+    def __init__(self, driver):
         self.item_link_list = []
         self.trend_item_link_list = []
-        self.get_item_driver = None
+        self.get_item_driver = driver
         
     def pub_item_links(self):
         """SNS로 Scan 정보 Publish"""
@@ -201,12 +202,29 @@ class PAGES:
         
         except Exception as e:
             print(str(e))
-            
+    
+    @abstractmethod
+    def get_item_links(self):
+        pass
+        
+    @abstractmethod
+    def get_trend_item_links(self):
+        pass
+        
+    def scanning(self):
+        self.get_item_links()
+        self.get_trend_item_links()
+        
+        try:                
+            self.pub_item_links()
+            self.pub_trend_item_links()
+        except Exception as e:
+            print(f"fail pub item links {e}")
             
 class QUASAR_ZONE(PAGES):
-    def __init__(self):
+    def __init__(self, driver):
         self.site_name = QUASAR_ZONE_LINK
-        super().__init__()
+        super().__init__(driver)
         
     def get_trend_item_links(self):
         self.get_item_driver.implicitly_wait(1)
@@ -229,8 +247,7 @@ class QUASAR_ZONE(PAGES):
                 
         self.get_item_driver.implicitly_wait(10)    
         
-    def get_item_links(self, driver):
-        self.get_item_driver = driver
+    def get_item_links(self):
         try:
             self.get_item_driver.get(self.site_name)
         except Exception as e:
@@ -262,9 +279,9 @@ class QUASAR_ZONE(PAGES):
                         
 
 class ARCA_LIVE(PAGES):
-    def __init__(self):
+    def __init__(self, driver):
         self.site_name = ARCA_LIVE_LINK
-        super().__init__()
+        super().__init__(driver)
     
     def get_trend_item_links(self):
         self.get_item_driver.implicitly_wait(1)    
@@ -288,8 +305,7 @@ class ARCA_LIVE(PAGES):
                 
         self.get_item_driver.implicitly_wait(10)
         
-    def get_item_links(self, driver):
-        self.get_item_driver = driver
+    def get_item_links(self):
         try:
             self.get_item_driver.get(self.site_name)
         except Exception as e:
@@ -350,9 +366,9 @@ class RULI_WEB(PAGES):
             print(f"fail pub item links {e}")
             
 class FM_KOREA(PAGES):
-    def __init__(self):
+    def __init__(self, driver):
         self.site_name = FM_KOREA_LINK
-        super().__init__()
+        super().__init__(driver)
         
     def get_trend_item_links(self):
         self.get_item_driver.implicitly_wait(1)
@@ -375,8 +391,7 @@ class FM_KOREA(PAGES):
 
         self.get_item_driver.implicitly_wait(10)
         
-    def get_item_links(self, driver):
-        self.get_item_driver = driver
+    def get_item_links(self):
         try:
             self.get_item_driver.get(self.site_name)
         except Exception as e:
@@ -408,11 +423,13 @@ class FM_KOREA(PAGES):
             print(f"fail pub item links {e}")
                 
 class PPOM_PPU(PAGES):
-    def __init__(self):
+    def __init__(self, driver):
         self.site_name = PPOM_PPU_LINK
-        super().__init__()
+        super().__init__(driver)
     
-    def get_trend_item_links(self, soup):
+    def get_trend_item_links(self):
+        response = session.get(self.site_name)
+        soup = bs(response.content, "html.parser")
         for item in soup.find_all(class_= "baseList-c")[1:20]: # 댓글이 달린 게시글만
             trend_item_link = "err"
             if "popup_comment.php" not in item.get("onclick", ""): # 공지, 광고 제외
@@ -438,14 +455,17 @@ class PPOM_PPU(PAGES):
                 print(f"fail get item links {item_link} {e}")
                 break
         
-        self.get_trend_item_links(soup)
-                    
+
+    def scanning(self):
+        self.get_item_links()
+        self.get_trend_item_links()
+        
         try:                
             self.pub_item_links()
             self.pub_trend_item_links()
         except Exception as e:
             print(f"fail pub item links {e}")
-
+        
 def set_driver():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.binary_location = "/opt/chrome/chrome"
@@ -474,19 +494,14 @@ def set_driver():
     driver.implicitly_wait(10)
     return driver
 
-
 def handler(event=None, context=None):
     
     driver = set_driver()
-    quasar_zone = QUASAR_ZONE()
-    ppom_ppu = PPOM_PPU()
-    fm_korea = FM_KOREA()
-    ruli_web = RULI_WEB()
-    arca_live = ARCA_LIVE()
-    
-    current = time.time()
-    quasar_zone.get_item_links(driver)
-    print(f" quasar zone {time.time() - current}")
+    quasar_zone = QUASAR_ZONE(driver)
+    ppom_ppu = PPOM_PPU(driver)
+    fm_korea = FM_KOREA(driver)
+    ruli_web = RULI_WEB(driver)
+    arca_live = ARCA_LIVE(driver)
     
     # 루리웹 접속 불가로 인해 주석 처리 Message: unknown error: net::ERR_CONNECTION_TIMED_OUT
     # current = time.time()
@@ -494,15 +509,19 @@ def handler(event=None, context=None):
     # print(f" ruliweb {time.time() - current}")
     
     current = time.time()
-    ppom_ppu.get_item_links()
+    quasar_zone.scanning()
+    print(f" quasar zone {time.time() - current}")
+    
+    current = time.time()
+    ppom_ppu.scanning()
     print(f" ppomppu {time.time() - current}")
     
     current = time.time()
-    fm_korea.get_item_links(driver)
+    fm_korea.scanning()
     print(f" fm korea {time.time() - current}")
     
     current = time.time()
-    arca_live.get_item_links(driver)
+    arca_live.scanning()
     print(f" arca live {time.time() - current}")
 
     driver.quit()
