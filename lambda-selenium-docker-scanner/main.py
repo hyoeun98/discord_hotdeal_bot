@@ -84,6 +84,7 @@ class PAGES:
     def __init__(self):
         self.item_link_list = []
         self.trend_item_link_list = []
+        self.get_item_driver = None
         
     def pub_item_links(self):
         """SNS로 Scan 정보 Publish"""
@@ -207,35 +208,13 @@ class QUASAR_ZONE(PAGES):
         self.site_name = QUASAR_ZONE_LINK
         super().__init__()
         
-    def get_item_links(self, driver):
-        get_item_driver = driver
-        try:
-            get_item_driver.get(self.site_name)
-        except Exception as e:
-            print(f"{self.site_name} 접속 실패 {str(e)}")
-            return
-        
-        for i in range(1, 31):
-            try:
-                find_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div > div.market-info-list-cont > p > a"
-                item_link = "err"
-                item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
-                print(item.text)
-                item_link = item.get_attribute("href")
-                self.item_link_list.append(item_link)
-                print(item_link)
-                    
-            except Exception as e:
-                print(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
-                break
-        
-        get_item_driver.implicitly_wait(1)
+    def get_trend_item_links(self):
+        self.get_item_driver.implicitly_wait(1)
         for i in range(1, 31):
             try:
                 find_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div > div.market-info-list-cont > p > a"
                 trend_item_link = "err"
-                item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)       
+                item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)       
                 trend_item_link = item.get_attribute("href")
  
                 comment_count = item.find_element(By.CLASS_NAME, "board-list-comment")
@@ -248,7 +227,32 @@ class QUASAR_ZONE(PAGES):
             except Exception as e:
                 print(f"no comment {trend_item_link}")
                 
-        get_item_driver.implicitly_wait(10)    
+        self.get_item_driver.implicitly_wait(10)    
+        
+    def get_item_links(self, driver):
+        self.get_item_driver = driver
+        try:
+            self.get_item_driver.get(self.site_name)
+        except Exception as e:
+            print(f"{self.site_name} 접속 실패 {str(e)}")
+            return
+        
+        for i in range(1, 31):
+            try:
+                find_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div > div.market-info-list-cont > p > a"
+                item_link = "err"
+                item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
+                print(item.text)
+                item_link = item.get_attribute("href")
+                self.item_link_list.append(item_link)
+                print(item_link)
+                    
+            except Exception as e:
+                print(f"fail get item links {item_link} {e}")
+                capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
+                break
+        
+        self.get_trend_item_links()
         
         try:                
             self.pub_item_links()
@@ -261,39 +265,18 @@ class ARCA_LIVE(PAGES):
     def __init__(self):
         self.site_name = ARCA_LIVE_LINK
         super().__init__()
-        
-    def get_item_links(self, driver):
-        get_item_driver = driver
-        try:
-            get_item_driver.get(self.site_name)
-        except Exception as e:
-            print(f"{self.site_name} 접속 실패 {str(e)}")
-            return
-        
-        for i in range(2, 27):
-            try:
-                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
-                item_link = "err"
-                item = get_item_driver.find_element(By.XPATH, find_xpath_selector)
-                print(item.text)
-                item_link = item.get_attribute("href")
-                self.item_link_list.append(item_link)
-                print(item_link)
-            except Exception as e:
-                print(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
-                break
-            
-        get_item_driver.implicitly_wait(1)    
+    
+    def get_trend_item_links(self):
+        self.get_item_driver.implicitly_wait(1)    
         for i in range(2, 27):
             try:
                 find_link_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
                 find_comment_count_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a/span[2]/span"
                 trend_item_link = "err"
-                item = get_item_driver.find_element(By.XPATH, find_link_xpath_selector)
+                item = self.get_item_driver.find_element(By.XPATH, find_link_xpath_selector)
                 trend_item_link = item.get_attribute("href")
                 
-                comment_count = get_item_driver.find_element(By.XPATH, find_comment_count_xpath_selector)
+                comment_count = self.get_item_driver.find_element(By.XPATH, find_comment_count_xpath_selector)
                 comment_count = int(comment_count.text[1:-1])
                 if comment_count >= 10:
                     self.trend_item_link_list.append(trend_item_link)
@@ -303,7 +286,31 @@ class ARCA_LIVE(PAGES):
             except Exception as e:
                 print(f"no comment {trend_item_link}")
                 
-        get_item_driver.implicitly_wait(10)
+        self.get_item_driver.implicitly_wait(10)
+        
+    def get_item_links(self, driver):
+        self.get_item_driver = driver
+        try:
+            self.get_item_driver.get(self.site_name)
+        except Exception as e:
+            print(f"{self.site_name} 접속 실패 {str(e)}")
+            return
+        
+        for i in range(2, 27):
+            try:
+                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
+                item_link = "err"
+                item = self.get_item_driver.find_element(By.XPATH, find_xpath_selector)
+                print(item.text)
+                item_link = item.get_attribute("href")
+                self.item_link_list.append(item_link)
+                print(item_link)
+            except Exception as e:
+                print(f"fail get item links {item_link} {e}")
+                capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
+                break
+            
+        self.get_trend_item_links()
         
         try:                
             self.pub_item_links()
@@ -347,36 +354,13 @@ class FM_KOREA(PAGES):
         self.site_name = FM_KOREA_LINK
         super().__init__()
         
-    def get_item_links(self, driver):
-        get_item_driver = driver
-        try:
-            get_item_driver.get(self.site_name)
-        except Exception as e:
-            print(f"{self.site_name} 접속 실패 {str(e)}")
-            return
-
-        for i in range(1, 21):
-            try:
-                find_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i}) > div > h3 > a"
-                item_link = "err"
-                item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
-                print(item.text)
-                item_link = item.get_attribute("href")
-                self.item_link_list.append(item_link)
-                print(item_link)
-
-                
-            except Exception as e:
-                print(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
-                break
-        
-        get_item_driver.implicitly_wait(1)
+    def get_trend_item_links(self):
+        self.get_item_driver.implicitly_wait(1)
         for i in range(1, 21):
             try:
                 find_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i}) > div > h3 > a"
                 trend_item_link = "err"
-                item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
+                item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
                 trend_item_link = item.get_attribute("href")
                 
                 comment_count = item.find_element(By.CLASS_NAME, "comment_count")
@@ -389,7 +373,33 @@ class FM_KOREA(PAGES):
             except Exception as e:
                 print(f"no comment {trend_item_link}")
 
-        get_item_driver.implicitly_wait(10)
+        self.get_item_driver.implicitly_wait(10)
+        
+    def get_item_links(self, driver):
+        self.get_item_driver = driver
+        try:
+            self.get_item_driver.get(self.site_name)
+        except Exception as e:
+            print(f"{self.site_name} 접속 실패 {str(e)}")
+            return
+
+        for i in range(1, 21):
+            try:
+                find_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i}) > div > h3 > a"
+                item_link = "err"
+                item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
+                print(item.text)
+                item_link = item.get_attribute("href")
+                self.item_link_list.append(item_link)
+                print(item_link)
+
+                
+            except Exception as e:
+                print(f"fail get item links {item_link} {e}")
+                capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
+                break
+        
+        self.get_trend_item_links()
         
         try:                
             self.pub_item_links()
@@ -401,7 +411,19 @@ class PPOM_PPU(PAGES):
     def __init__(self):
         self.site_name = PPOM_PPU_LINK
         super().__init__()
-        
+    
+    def get_trend_item_links(self, soup):
+        for item in soup.find_all(class_= "baseList-c")[1:20]: # 댓글이 달린 게시글만
+            trend_item_link = "err"
+            if "popup_comment.php" not in item.get("onclick", ""): # 공지, 광고 제외
+                trend_item_link = "https://www.ppomppu.co.kr/zboard/view.php" + item.attrs["onclick"][13:-3]
+                if int(item.text) >= 10: # 댓글 10개 이상
+                    self.trend_item_link_list.append(trend_item_link)
+                try:
+                    print(f"{trend_item_link} num comment : {item.text}")
+                except:
+                    print(f"no comment {trend_item_link}")
+                    
     def get_item_links(self):
         response = session.get(self.site_name)
         soup = bs(response.content, "html.parser")
@@ -416,16 +438,7 @@ class PPOM_PPU(PAGES):
                 print(f"fail get item links {item_link} {e}")
                 break
         
-        for item in soup.find_all(class_= "baseList-c")[1:20]: # 댓글이 달린 게시글만
-            trend_item_link = "err"
-            if "popup_comment.php" not in item.get("onclick", ""): # 공지, 광고 제외
-                trend_item_link = "https://www.ppomppu.co.kr/zboard/view.php" + item.attrs["onclick"][13:-3]
-                if int(item.text) >= 10: # 댓글 10개 이상
-                    self.trend_item_link_list.append(trend_item_link)
-                try:
-                    print(f"{trend_item_link} num comment : {item.text}")
-                except:
-                    print(f"no comment {trend_item_link}")
+        self.get_trend_item_links(soup)
                     
         try:                
             self.pub_item_links()
