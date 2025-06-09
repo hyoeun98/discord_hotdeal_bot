@@ -15,7 +15,7 @@ from collections import defaultdict
 import psycopg2
 from datetime import datetime
 from stealthenium import stealth
-from ABC import ABC, abstractmethod
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
 
 QUEUE_URL = os.environ["QUEUE_URL"]
