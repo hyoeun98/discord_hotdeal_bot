@@ -510,7 +510,7 @@ def handler(event=None, context=None):
     quasar_zone = QUASAR_ZONE(driver)
     ppom_ppu = PPOM_PPU(driver)
     fm_korea = FM_KOREA(driver)
-    ruli_web = RULI_WEB(driver)
+    # ruli_web = RULI_WEB(driver)
     arca_live = ARCA_LIVE(driver)
     
     # 루리웹 접속 불가로 인해 주석 처리 Message: unknown error: net::ERR_CONNECTION_TIMED_OUT
