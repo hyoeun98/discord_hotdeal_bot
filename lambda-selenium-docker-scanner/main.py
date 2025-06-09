@@ -16,6 +16,7 @@ import psycopg2
 from datetime import datetime
 from stealthenium import stealth
 from ABC import ABC, abstractmethod
+from contextlib import contextmanager
 
 QUEUE_URL = os.environ["QUEUE_URL"]
 REGION = os.environ.get("REGION", "ap-northeast-2")
@@ -494,6 +495,15 @@ def set_driver():
     driver.implicitly_wait(10)
     return driver
 
+@contextmanager
+def timer(name: str):
+    t0 = time.time()
+    try:
+        yield
+    finally:
+        print(f"{name} done in {time.time() - t0:.3f} s")
+
+
 def handler(event=None, context=None):
     
     driver = set_driver()
@@ -508,21 +518,17 @@ def handler(event=None, context=None):
     # ruli_web.get_item_links(driver)
     # print(f" ruliweb {time.time() - current}")
     
-    current = time.time()
-    quasar_zone.scanning()
-    print(f" quasar zone {time.time() - current}")
+    with timer("quasar zone"):
+        quasar_zone.scanning()
     
-    current = time.time()
-    ppom_ppu.scanning()
-    print(f" ppomppu {time.time() - current}")
+    with timer("ppom ppu"):
+        ppom_ppu.scanning()
     
-    current = time.time()
-    fm_korea.scanning()
-    print(f" fm korea {time.time() - current}")
+    with timer("fm korea"):
+        fm_korea.scanning()
     
-    current = time.time()
-    arca_live.scanning()
-    print(f" arca live {time.time() - current}")
+    with timer("arca live"):
+        arca_live.scanning()
 
     driver.quit()
     
