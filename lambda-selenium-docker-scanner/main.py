@@ -118,13 +118,13 @@ class PAGES(ABC):
         """SNS로 인기글 정보 Publish"""
         sns = boto3.client('sns', region_name=REGION)
         topic_arn = TREND_SNS_ARN
-        db_item_links = self.db_get_trend_item_links()
-        _item_link_list = list(set(self.item_link_list) - set(db_item_links))
-        print(f"new trend item links : {_item_link_list}")
-        if _item_link_list:
-            message_body = json.dumps(_item_link_list)
+        db_trend_item_links = self.db_get_trend_item_links()
+        _trend_item_link_list = list(set(self.trend_item_link_list) - set(db_trend_item_links))
+        print(f"new trend item links : {_trend_item_link_list}")
+        if _trend_item_link_list:
+            message_body = json.dumps(_trend_item_link_list)
             scanned_site = self.__class__.__name__
-            num_item_links = str(len(_item_link_list))
+            num_item_links = str(len(_trend_item_link_list))
             
             response = sns.publish(
                 TopicArn=topic_arn,
