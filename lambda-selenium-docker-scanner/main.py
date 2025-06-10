@@ -285,6 +285,16 @@ class QUASAR_ZONE(PAGES):
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
 
+    def scanning(self):
+        self.get_item_links()
+        # self.get_trend_item_links()
+        
+        try:                
+            self.pub_item_links()
+            self.pub_trend_item_links()
+        except Exception as e:
+            print(f"fail pub item links {e}")
+        
 class ARCA_LIVE(PAGES):
     def __init__(self, driver):
         self.site_name = ARCA_LIVE_LINK
@@ -445,17 +455,6 @@ class PPOM_PPU(PAGES):
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
                 break
-        
-
-    def scanning(self):
-        self.get_item_links()
-        self.get_trend_item_links()
-        
-        try:                
-            self.pub_item_links()
-            self.pub_trend_item_links()
-        except Exception as e:
-            print(f"fail pub item links {e}")
         
 def set_driver():
     chrome_options = webdriver.ChromeOptions()
