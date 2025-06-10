@@ -381,8 +381,8 @@ class FM_KOREA(PAGES):
                 find_item_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i})"
                 find_item_link_css_selector = "div > h3 > a"
                 
-                item = self.get_item_driver.find_element(By.XPATH, find_item_css_selector)
-                item_link = item.find_element(By.XPATH, find_item_link_css_selector).get_attribute("href")
+                item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_item_css_selector)
+                item_link = item.find_element(By.CSS_SELECTOR, find_item_link_css_selector).get_attribute("href")
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                 
