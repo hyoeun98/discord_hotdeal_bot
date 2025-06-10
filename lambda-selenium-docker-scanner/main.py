@@ -203,6 +203,9 @@ class QUASAR_ZONE(PAGES):
         self.site_name = QUASAR_ZONE_LINK
         super().__init__(driver)
         
+    def get_trend_item_links(self):
+        pass
+    
     def get_comment_count(self, item):
         self.get_item_driver.implicitly_wait(1) 
         try:
@@ -258,6 +261,9 @@ class ARCA_LIVE(PAGES):
     def __init__(self, driver):
         self.site_name = ARCA_LIVE_LINK
         super().__init__(driver)
+        
+    def get_trend_item_links(self):
+        pass
     
     def get_comment_count(self, item):
         self.get_item_driver.implicitly_wait(1)
@@ -291,6 +297,10 @@ class ARCA_LIVE(PAGES):
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                 
+                if comment_count >= 10:
+                    self.trend_item_link_list.append(item_link)
+                
+                print(f"{item_link} comment : {comment_count} ")
                 
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
