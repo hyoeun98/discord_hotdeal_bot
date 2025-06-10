@@ -113,33 +113,7 @@ class PAGES(ABC):
             print(response)
         else:
             print("not found new item links")
-        
-    def pub_item_links(self):
-        """SNS로 Scan 정보 Publish"""
-        sns = boto3.client('sns', region_name=REGION)
-        topic_arn = SNS_ARN
-        db_item_links = self.db_get_item_links()
-        _item_link_list = list(set(self.item_link_list) - set(db_item_links))
-        print(f"new item links : {_item_link_list}")
-        if _item_link_list:
-            message_body = json.dumps(_item_link_list)
-            scanned_site = self.__class__.__name__
-            num_item_links = str(len(_item_link_list))
-            
-            response = sns.publish(
-                TopicArn=topic_arn,
-                Message=message_body,
-                MessageAttributes = {
-                    "is_scanning" : {'DataType': 'String', 'StringValue': "1"},
-                    "scanned_site" : {'DataType': 'String', 'StringValue': scanned_site},
-                    "num_item_links" : {'DataType': 'String', 'StringValue': num_item_links}
-                    
-                }
-            )
-            print(response)
-        else:
-            print("not found new item links")
-    
+
     def pub_trend_item_links(self):
         """SNS로 인기글 정보 Publish"""
         sns = boto3.client('sns', region_name=REGION)
@@ -270,13 +244,6 @@ class QUASAR_ZONE(PAGES):
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
         
-        self.get_trend_item_links()
-        
-        try:                
-            self.pub_item_links()
-            self.pub_trend_item_links()
-        except Exception as e:
-            print(f"fail pub item links {e}")
                         
 
 class ARCA_LIVE(PAGES):
@@ -327,44 +294,36 @@ class ARCA_LIVE(PAGES):
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
             
-        self.get_trend_item_links()
+# class RULI_WEB(PAGES):
+#     def __init__(self):
+#         self.site_name = RULI_WEB_LINK
+#         super().__init__()
         
-        try:                
-            self.pub_item_links()
-            self.pub_trend_item_links()
-        except Exception as e:
-            print(f"fail pub item links {e}")
-            
-class RULI_WEB(PAGES):
-    def __init__(self):
-        self.site_name = RULI_WEB_LINK
-        super().__init__()
+#     def get_item_links(self, driver):
+#         get_item_driver = driver
+#         try:
+#             get_item_driver.get(self.site_name)
+#         except Exception as e:
+#             print(f"{self.site_name} 접속 실패 {str(e)}")
+#             return
         
-    def get_item_links(self, driver):
-        get_item_driver = driver
-        try:
-            get_item_driver.get(self.site_name)
-        except Exception as e:
-            print(f"{self.site_name} 접속 실패 {str(e)}")
-            return
-        
-        for i in range(8, 36):
-            try:
-                find_css_selector = f"#board_list > div > div.board_main.theme_default.theme_white.theme_white > table > tbody > tr:nth-child({i}) > td.subject > div > a.deco"
-                item_link = "err"
-                item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
-                item_link = item.get_attribute("href")
-                self.item_link_list.append(item_link)
-                print(item_link)
-            except Exception as e:
-                print(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
-                break
+#         for i in range(8, 36):
+#             try:
+#                 find_css_selector = f"#board_list > div > div.board_main.theme_default.theme_white.theme_white > table > tbody > tr:nth-child({i}) > td.subject > div > a.deco"
+#                 item_link = "err"
+#                 item = get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
+#                 item_link = item.get_attribute("href")
+#                 self.item_link_list.append(item_link)
+#                 print(item_link)
+#             except Exception as e:
+#                 print(f"fail get item links {item_link} {e}")
+#                 capture_and_send_screenshot(get_item_driver, self.__class__.__name__)
+#                 break
 
-        try:                
-            self.pub_item_links()
-        except Exception as e:
-            print(f"fail pub item links {e}")
+#         try:                
+#             self.pub_item_links()
+#         except Exception as e:
+#             print(f"fail pub item links {e}")
             
 class FM_KOREA(PAGES):
     def __init__(self, driver):
@@ -415,14 +374,6 @@ class FM_KOREA(PAGES):
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
         
-        self.get_trend_item_links()
-        
-        try:                
-            self.pub_item_links()
-            self.pub_trend_item_links()
-        except Exception as e:
-            print(f"fail pub item links {e}")
-                
 class PPOM_PPU(PAGES):
     def __init__(self, driver):
         self.site_name = PPOM_PPU_LINK
