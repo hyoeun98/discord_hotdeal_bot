@@ -203,6 +203,20 @@ class QUASAR_ZONE(PAGES):
         self.site_name = QUASAR_ZONE_LINK
         super().__init__(driver)
         
+    def is_trend_item(self, item):
+        try:
+            comment_count = 0
+            comment_count = item.find_element(By.CLASS_NAME, "board-list-comment")
+            comment_count = int(comment_count.text)
+            if comment_count >= 10:
+                return True
+        
+        except Exception as e:
+            return False
+        
+        finally:
+            return False
+        
     def get_trend_item_links(self):
         self.get_item_driver.implicitly_wait(1)
         for i in range(1, 31):
@@ -224,6 +238,28 @@ class QUASAR_ZONE(PAGES):
                 
         self.get_item_driver.implicitly_wait(10)    
         
+    # def get_item_links(self):
+    #     try:
+    #         self.get_item_driver.get(self.site_name)
+    #     except Exception as e:
+    #         print(f"{self.site_name} 접속 실패 {str(e)}")
+    #         return
+        
+    #     for i in range(1, 31):
+    #         try:
+    #             find_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div > div.market-info-list-cont > p > a"
+    #             item_link = "err"
+    #             item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
+    #             print(item.text)
+    #             item_link = item.get_attribute("href")
+    #             self.item_link_list.append(item_link)
+    #             print(item_link)
+                    
+    #         except Exception as e:
+    #             print(f"fail get item links {item_link} {e}")
+    #             capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
+    #             break
+        
     def get_item_links(self):
         try:
             self.get_item_driver.get(self.site_name)
@@ -233,20 +269,21 @@ class QUASAR_ZONE(PAGES):
         
         for i in range(1, 31):
             try:
-                find_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div > div.market-info-list-cont > p > a"
                 item_link = "err"
-                item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
-                print(item.text)
-                item_link = item.get_attribute("href")
+                find_item_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div"
+                find_item_link_css_selector = " div.market-info-list-cont > p > a"
+                item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_item_css_selector)
+                item_link = item.find_element(By.CSS_SELECTOR, find_item_link_css_selector).get_attribute("href")
                 self.item_link_list.append(item_link)
                 print(item_link)
                     
+                if self.is_trend_item(item):
+                    self.trend_item_link_list.append(item_link)
+                
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
-        
-                        
 
 class ARCA_LIVE(PAGES):
     def __init__(self, driver):
@@ -472,7 +509,7 @@ def handler(event=None, context=None):
     # print(f" ruliweb {time.time() - current}")
     
     with timer("quasar zone"):
-        quasar_zone.scanning()
+        quasar_zone.get_item_links()
     
     with timer("ppom ppu"):
         ppom_ppu.scanning()
