@@ -203,62 +203,17 @@ class QUASAR_ZONE(PAGES):
         self.site_name = QUASAR_ZONE_LINK
         super().__init__(driver)
         
-    def is_trend_item(self, item):
+    def get_comment_count(self, item):
         try:
-            comment_count = 0
             comment_count = item.find_element(By.CLASS_NAME, "board-list-comment")
             comment_count = int(comment_count.text)
-            if comment_count >= 10:
-                return True
+            return comment_count
         
         except Exception as e:
-            return False
+            return 0
         
         finally:
-            return False
-        
-    def get_trend_item_links(self):
-        self.get_item_driver.implicitly_wait(1)
-        for i in range(1, 31):
-            try:
-                find_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div > div.market-info-list-cont > p > a"
-                trend_item_link = "err"
-                item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)       
-                trend_item_link = item.get_attribute("href")
- 
-                comment_count = item.find_element(By.CLASS_NAME, "board-list-comment")
-                comment_count = int(comment_count.text)
-                if comment_count >= 10:
-                    self.trend_item_link_list.append(trend_item_link)
-                    
-                print(f"{trend_item_link} num comment : {comment_count}")
-         
-            except Exception as e:
-                print(f"no comment {trend_item_link}")
-                
-        self.get_item_driver.implicitly_wait(10)    
-        
-    # def get_item_links(self):
-    #     try:
-    #         self.get_item_driver.get(self.site_name)
-    #     except Exception as e:
-    #         print(f"{self.site_name} 접속 실패 {str(e)}")
-    #         return
-        
-    #     for i in range(1, 31):
-    #         try:
-    #             find_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div > div.market-info-list-cont > p > a"
-    #             item_link = "err"
-    #             item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
-    #             print(item.text)
-    #             item_link = item.get_attribute("href")
-    #             self.item_link_list.append(item_link)
-    #             print(item_link)
-                    
-    #         except Exception as e:
-    #             print(f"fail get item links {item_link} {e}")
-    #             capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
-    #             break
+            return 0
         
     def get_item_links(self):
         try:
@@ -272,13 +227,16 @@ class QUASAR_ZONE(PAGES):
                 item_link = "err"
                 find_item_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div"
                 find_item_link_css_selector = " div.market-info-list-cont > p > a"
+                
                 item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_item_css_selector)
                 item_link = item.find_element(By.CSS_SELECTOR, find_item_link_css_selector).get_attribute("href")
                 self.item_link_list.append(item_link)
-                print(item_link)
+                comment_count = self.get_comment_count(item)
                     
-                if self.is_trend_item(item):
+                if comment_count >= 10:
                     self.trend_item_link_list.append(item_link)
+                
+                print(f"{item_link} comment : {comment_count} ")
                 
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
