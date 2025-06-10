@@ -230,7 +230,7 @@ class QUASAR_ZONE(PAGES):
             try:
                 item_link = "err"
                 find_item_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div"
-                find_item_link_css_selector = " div.market-info-list-cont > p > a"
+                find_item_link_css_selector = "div.market-info-list-cont > p > a"
                 
                 item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_item_css_selector)
                 item_link = item.find_element(By.CSS_SELECTOR, find_item_link_css_selector).get_attribute("href")
@@ -351,27 +351,22 @@ class FM_KOREA(PAGES):
     def __init__(self, driver):
         self.site_name = FM_KOREA_LINK
         super().__init__(driver)
-        
+    
     def get_trend_item_links(self):
+        pass
+    
+    def get_comment_count(self, item):
         self.get_item_driver.implicitly_wait(1)
-        for i in range(1, 21):
-            try:
-                find_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i}) > div > h3 > a"
-                trend_item_link = "err"
-                item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
-                trend_item_link = item.get_attribute("href")
-                
-                comment_count = item.find_element(By.CLASS_NAME, "comment_count")
-                comment_count = int(comment_count.text[1:-1])
-                
-                if comment_count >= 10:
-                    self.trend_item_link_list.append(trend_item_link)
-                    
-                print(f"{trend_item_link} num comment : {comment_count}")
-            except Exception as e:
-                print(f"no comment {trend_item_link}")
-
-        self.get_item_driver.implicitly_wait(10)
+        try:
+            comment_count = item.find_element(By.CLASS_NAME, "comment_count")
+            comment_count = int(comment_count.text[1:-1])
+        
+        except Exception as e:
+            comment_count = 0
+        
+        finally:
+            self.get_item_driver.implicitly_wait(10) 
+            return comment_count
         
     def get_item_links(self):
         try:
@@ -379,17 +374,22 @@ class FM_KOREA(PAGES):
         except Exception as e:
             print(f"{self.site_name} 접속 실패 {str(e)}")
             return
-
+        
         for i in range(1, 21):
             try:
-                find_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i}) > div > h3 > a"
                 item_link = "err"
-                item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_css_selector)
-                print(item.text)
-                item_link = item.get_attribute("href")
+                find_item_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i})"
+                find_item_link_css_selector = "div > h3 > a"
+                
+                item = self.get_item_driver.find_element(By.XPATH, find_item_css_selector)
+                item_link = item.find_element(By.XPATH, find_item_link_css_selector).get_attribute("href")
                 self.item_link_list.append(item_link)
-                print(item_link)
-
+                comment_count = self.get_comment_count(item)
+                
+                if comment_count >= 10:
+                    self.trend_item_link_list.append(item_link)
+                
+                print(f"{item_link} comment : {comment_count} ")
                 
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
