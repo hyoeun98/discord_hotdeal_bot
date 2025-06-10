@@ -187,8 +187,10 @@ class PAGES(ABC):
         pass
         
     def scanning(self):
-        self.get_item_links()
-        self.get_trend_item_links()
+        with timer(f"{self.__class__.__name__} get item link"):
+            self.get_item_links()
+        with timer(f"{self.__class__.__name__} get trend item link"):
+            self.get_trend_item_links()
         
         try:                
             self.pub_item_links()
