@@ -402,28 +402,35 @@ class PPOM_PPU(PAGES):
         super().__init__(driver)
     
     def get_trend_item_links(self):
-        response = session.get(self.site_name)
-        soup = bs(response.content, "html.parser")
-        for item in soup.find_all(class_= "baseList-c")[1:20]: # 댓글이 달린 게시글만
-            trend_item_link = "err"
-            if "popup_comment.php" not in item.get("onclick", ""): # 공지, 광고 제외
-                trend_item_link = "https://www.ppomppu.co.kr/zboard/view.php" + item.attrs["onclick"][13:-3]
-                if int(item.text) >= 10: # 댓글 10개 이상
-                    self.trend_item_link_list.append(trend_item_link)
-                try:
-                    print(f"{trend_item_link} num comment : {item.text}")
-                except:
-                    print(f"no comment {trend_item_link}")
+        pass
+    
+    def get_comment_count(self, item):
+        try:
+            comment_count = item.find(class_="baseList-c").text
+            comment_count = int(comment_count)
+        
+        except Exception as e:
+            comment_count = 0
+        
+        finally:
+            return comment_count
                     
     def get_item_links(self):
         response = session.get(self.site_name)
         soup = bs(response.content, "html.parser")
-        for item in soup.find_all(class_= "baseList-thumb")[:20]:
+        
+        for item in soup.find_all(class_= ["baseList", "bbs_new1"])[:20]:
             try:
-                item_link = "https://www.ppomppu.co.kr/zboard/" + item.attrs["href"]
+                item_link_element = item.find(class_="baseList-thumb")
+                item_link = "https://www.ppomppu.co.kr/zboard/" + item_link_element.attrs["href"]
                 item_link = item_link.replace("&&", "&")
                 self.item_link_list.append(item_link)
-                print(item_link)
+                comment_count = self.get_comment_count(item)
+                
+                if comment_count >= 10:
+                    self.trend_item_link_list.append(item_link)
+                
+                print(f"{item_link} comment : {comment_count} ")
                 
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
