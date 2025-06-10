@@ -204,16 +204,17 @@ class QUASAR_ZONE(PAGES):
         super().__init__(driver)
         
     def get_comment_count(self, item):
+        self.get_item_driver.implicitly_wait(1) 
         try:
             comment_count = item.find_element(By.CLASS_NAME, "board-list-comment")
             comment_count = int(comment_count.text)
-            return comment_count
         
         except Exception as e:
-            return 0
+            comment_count = 0
         
         finally:
-            return 0
+            self.get_item_driver.implicitly_wait(10) 
+            return comment_count
         
     def get_item_links(self):
         try:
@@ -258,27 +259,19 @@ class ARCA_LIVE(PAGES):
         self.site_name = ARCA_LIVE_LINK
         super().__init__(driver)
     
-    def get_trend_item_links(self):
-        self.get_item_driver.implicitly_wait(1)    
-        for i in range(2, 27):
-            try:
-                find_link_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
-                find_comment_count_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a/span[2]/span"
-                trend_item_link = "err"
-                item = self.get_item_driver.find_element(By.XPATH, find_link_xpath_selector)
-                trend_item_link = item.get_attribute("href")
-                
-                comment_count = self.get_item_driver.find_element(By.XPATH, find_comment_count_xpath_selector)
-                comment_count = int(comment_count.text[1:-1])
-                if comment_count >= 10:
-                    self.trend_item_link_list.append(trend_item_link)
-                    
-                print(f"{trend_item_link} num comment : {comment_count}")
-                
-            except Exception as e:
-                print(f"no comment {trend_item_link}")
-                
-        self.get_item_driver.implicitly_wait(10)
+    def get_comment_count(self, item):
+        self.get_item_driver.implicitly_wait(1)
+        find_comment_count_xpath_selector = "./div/div/span[2]/a/span[2]/span"
+        try:
+            comment_count = item.find_element(By.XPATH, find_comment_count_xpath_selector)
+            comment_count = int(comment_count.text[1:-1])
+        
+        except Exception as e:
+            comment_count = 0
+        
+        finally:
+            self.get_item_driver.implicitly_wait(10) 
+            return comment_count
         
     def get_item_links(self):
         try:
@@ -289,18 +282,30 @@ class ARCA_LIVE(PAGES):
         
         for i in range(2, 27):
             try:
-                find_xpath_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]/div/div/span[2]/a"
                 item_link = "err"
-                item = self.get_item_driver.find_element(By.XPATH, find_xpath_selector)
-                print(item.text)
-                item_link = item.get_attribute("href")
+                find_item_xapth_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]"
+                find_item_link_xpath_selector = "./div/div/span[2]/a"
+                
+                item = self.get_item_driver.find_element(By.XPATH, find_item_xapth_selector)
+                item_link = item.find_element(By.XPATH, find_item_link_xpath_selector).get_attribute("href")
                 self.item_link_list.append(item_link)
-                print(item_link)
+                comment_count = self.get_comment_count(item)
+                
+                
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
             
+    def scanning(self):
+        self.get_item_links()
+        # self.get_trend_item_links()
+        
+        try:                
+            self.pub_item_links()
+            self.pub_trend_item_links()
+        except Exception as e:
+            print(f"fail pub item links {e}")
 # class RULI_WEB(PAGES):
 #     def __init__(self):
 #         self.site_name = RULI_WEB_LINK
