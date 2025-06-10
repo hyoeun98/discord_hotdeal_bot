@@ -508,7 +508,7 @@ def handler(event=None, context=None):
     # print(f" ruliweb {time.time() - current}")
     
     with timer("quasar zone"):
-        quasar_zone.get_item_links()
+        quasar_zone.scanning()
     
     with timer("ppom ppu"):
         ppom_ppu.scanning()
