@@ -182,15 +182,9 @@ class PAGES(ABC):
     def get_item_links(self):
         pass
         
-    @abstractmethod
-    def get_trend_item_links(self):
-        pass
-        
     def scanning(self):
         with timer(f"{self.__class__.__name__} get item link"):
             self.get_item_links()
-        with timer(f"{self.__class__.__name__} get trend item link"):
-            self.get_trend_item_links()
         
         try:                
             self.pub_item_links()
@@ -202,10 +196,7 @@ class QUASAR_ZONE(PAGES):
     def __init__(self, driver):
         self.site_name = QUASAR_ZONE_LINK
         super().__init__(driver)
-        
-    def get_trend_item_links(self):
-        pass
-    
+
     def get_comment_count(self, item):
         self.get_item_driver.implicitly_wait(1) 
         try:
@@ -247,24 +238,11 @@ class QUASAR_ZONE(PAGES):
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
 
-    def scanning(self):
-        self.get_item_links()
-        # self.get_trend_item_links()
-        
-        try:                
-            self.pub_item_links()
-            self.pub_trend_item_links()
-        except Exception as e:
-            print(f"fail pub item links {e}")
-        
 class ARCA_LIVE(PAGES):
     def __init__(self, driver):
         self.site_name = ARCA_LIVE_LINK
         super().__init__(driver)
-        
-    def get_trend_item_links(self):
-        pass
-    
+
     def get_comment_count(self, item):
         self.get_item_driver.implicitly_wait(1)
         find_comment_count_xpath_selector = "./div/div/span[2]/a/span[2]/span"
@@ -307,15 +285,6 @@ class ARCA_LIVE(PAGES):
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
             
-    def scanning(self):
-        self.get_item_links()
-        # self.get_trend_item_links()
-        
-        try:                
-            self.pub_item_links()
-            self.pub_trend_item_links()
-        except Exception as e:
-            print(f"fail pub item links {e}")
 # class RULI_WEB(PAGES):
 #     def __init__(self):
 #         self.site_name = RULI_WEB_LINK
@@ -351,9 +320,6 @@ class FM_KOREA(PAGES):
     def __init__(self, driver):
         self.site_name = FM_KOREA_LINK
         super().__init__(driver)
-    
-    def get_trend_item_links(self):
-        pass
     
     def get_comment_count(self, item):
         self.get_item_driver.implicitly_wait(1)
@@ -400,10 +366,7 @@ class PPOM_PPU(PAGES):
     def __init__(self, driver):
         self.site_name = PPOM_PPU_LINK
         super().__init__(driver)
-    
-    def get_trend_item_links(self):
-        pass
-    
+
     def get_comment_count(self, item):
         try:
             comment_count = item.find(class_="baseList-c").text
@@ -487,17 +450,10 @@ def handler(event=None, context=None):
     # ruli_web.get_item_links(driver)
     # print(f" ruliweb {time.time() - current}")
     
-    with timer("quasar zone"):
-        quasar_zone.scanning()
-    
-    with timer("ppom ppu"):
-        ppom_ppu.scanning()
-    
-    with timer("fm korea"):
-        fm_korea.scanning()
-    
-    with timer("arca live"):
-        arca_live.scanning()
+    quasar_zone.scanning()
+    ppom_ppu.scanning()
+    fm_korea.scanning()    
+    arca_live.scanning()
 
     driver.quit()
     
