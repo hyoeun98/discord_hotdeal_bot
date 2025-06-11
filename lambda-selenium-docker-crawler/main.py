@@ -266,11 +266,11 @@ def handler(event, context):
         driver = set_driver()
         
         message = event['Records'][0]['Sns']['MessageAttributes']
-        scanned_site = message['scanned_site']['Value']
+        site_name = message['site_name']['Value']
         item_link_list = ast.literal_eval(event['Records'][0]['Sns']['Message'])
         
         # 크롤링 클래스 선택
-        crawler_class = globals()[scanned_site]
+        crawler_class = globals()[site_name]
         crawler = crawler_class()
         
         crawler.crawling(driver, item_link_list)
