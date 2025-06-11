@@ -8,6 +8,7 @@
     - 뽐뿌, 루리웹 등의 핫딜 게시판 크롤링하여 discord 메시지 전송
     - 키워드 설정 시 멘션으로 알림
     - 멘션으로 알린 메세지는 thread에 따로 모아둠
+    - 단시간에 반응이 뜨거운 게시글(조회수, 댓글 등) 알림
       
     ![example_message](https://github.com/user-attachments/assets/66c59425-f8ad-494f-a691-344d876a2ba0)
   ![example_thread_message](https://github.com/user-attachments/assets/915f94d7-c228-40c5-ad00-ab927d971c03)
