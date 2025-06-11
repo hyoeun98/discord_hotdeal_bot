@@ -105,7 +105,7 @@ class PAGES(ABC):
                 Message=message_body,
                 MessageAttributes = {
                     "is_scanning" : {'DataType': 'String', 'StringValue': "1"},
-                    "scanned_site" : {'DataType': 'String', 'StringValue': scanned_site},
+                    "site_name" : {'DataType': 'String', 'StringValue': scanned_site},
                     "num_item_links" : {'DataType': 'String', 'StringValue': num_item_links}
                     
                 }
@@ -131,7 +131,7 @@ class PAGES(ABC):
                 Message=message_body,
                 MessageAttributes = {
                     "is_scanning" : {'DataType': 'String', 'StringValue': "1"},
-                    "scanned_site" : {'DataType': 'String', 'StringValue': scanned_site},
+                    "site_name" : {'DataType': 'String', 'StringValue': scanned_site},
                     "num_item_links" : {'DataType': 'String', 'StringValue': num_item_links}
                     
                 }

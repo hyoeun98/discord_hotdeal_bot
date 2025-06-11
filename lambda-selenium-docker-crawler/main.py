@@ -45,7 +45,7 @@ class PAGES:
             MessageBody=message_body,
             MessageAttributes = {
                 "is_crawling" : {'DataType': 'String', 'StringValue': "1"},
-                "crawled_site" : {'DataType': 'String', 'StringValue': crawled_site},
+                "site_name" : {'DataType': 'String', 'StringValue': crawled_site},
                 
             }
         )
