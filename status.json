@@ -1,3 +1,6 @@
 {
-  "last_checked": "2025-06-12"
+  "schemaVersion": 1,
+  "label": "Discord Invite Validation",
+  "message": "unknown",
+  "color": "lightgrey"
 }
