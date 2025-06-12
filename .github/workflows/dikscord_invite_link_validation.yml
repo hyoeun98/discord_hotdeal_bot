@@ -1,0 +1,40 @@
+name: Discord Invite Link Validation
+
+on:
+  schedule:
+    - cron: '0 15 * * *'  # KST 기준 자정 실행
+  workflow_dispatch:
+
+jobs:
+  validate-link:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check link status
+      id: link-check
+      run: |
+        URL="https://discord.com/oauth2/authorize?client_id=1346055722676260985"
+        response=$(curl -s -I -w "%{http_code}" -o /dev/null "$URL")
+        echo "status_code=$response" >> $GITHUB_OUTPUT
+        if [[ "$response" == "200" || "$response" == "302" ]]; then
+          echo "status=valid" >> $GITHUB_OUTPUT
+        else
+          echo "status=invalid" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Notify result to Discord webhook
+      if: ${{ steps.link-check.outputs.status == 'invalid' }}
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      run: |
+        curl -X POST \
+          -H "Content-Type: application/json" \
+          -d "{\"content\":\"❌ Discord 봇 초대 링크가 무효 상태입니다! (Status: ${{ steps.link-check.outputs.status_code }})\"}" \
+          $DISCORD_WEBHOOK
+
+    - name: Print result
+      run: |
+        if [[ "${{ steps.link-check.outputs.status }}" == "valid" ]]; then
+          echo "✅ 링크 유효 (Status: ${{ steps.link-check.outputs.status_code }})"
+        else
+          echo "❌ 링크 무효 (Status: ${{ steps.link-check.outputs.status_code }})"
+        fi
