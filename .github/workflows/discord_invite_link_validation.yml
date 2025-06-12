@@ -1,28 +1,48 @@
 name: Discord Invite Link Validation
 
+permissions:
+  contents: write
+
 on:
   schedule:
-    - cron: '0 15 * * *'  # KST 기준 자정 실행
+    - cron: '0 15 * * *'  # 매일 0시 KST
   workflow_dispatch:
 
 jobs:
   validate-link:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Check link status
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Check Discord invite link status
       id: link-check
       run: |
         URL="https://discord.com/oauth2/authorize?client_id=1346055722676260985"
         response=$(curl -s -I -w "%{http_code}" -o /dev/null "$URL")
         echo "status_code=$response" >> $GITHUB_OUTPUT
         if [[ "$response" == "200" || "$response" == "302" ]]; then
-          echo "status=valid" >> $GITHUB_OUTPUT
+          echo "status=passing" >> $GITHUB_OUTPUT
+          echo "color=success" >> $GITHUB_OUTPUT
         else
-          echo "status=invalid" >> $GITHUB_OUTPUT
+          echo "status=failing" >> $GITHUB_OUTPUT
+          echo "color=critical" >> $GITHUB_OUTPUT
         fi
 
-    - name: Notify result to Discord webhook
-      if: ${{ steps.link-check.outputs.status == 'invalid' }}
+    - name: Update status.json
+      run: |
+        echo "{\"schemaVersion\": 1, \"label\": \"Discord Invite Validation\", \"message\": \"${{ steps.link-check.outputs.status }} ($(date +%Y-%m-%d))\", \"color\": \"${{ steps.link-check.outputs.color }}\"}" > status.json
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git add status.json
+        git commit -m "Update validation status and date"
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Notify to Discord webhook if invalid
+      if: ${{ steps.link-check.outputs.status == 'failing' }}
       env:
         DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
       run: |
@@ -33,19 +53,4 @@ jobs:
 
     - name: Print result
       run: |
-        if [[ "${{ steps.link-check.outputs.status }}" == "valid" ]]; then
-          echo "✅ 링크 유효 (Status: ${{ steps.link-check.outputs.status_code }})"
-        else
-          echo "❌ 링크 무효 (Status: ${{ steps.link-check.outputs.status_code }})"
-        fi
-        
-    - name: Update last_checked date in status.json
-      run: |
-        echo "{\"last_checked\": \"$(date +%Y-%m-%d)\"}" > status.json
-        git config --global user.email "action@github.com"
-        git config --global user.name "GitHub Action"
-        git add status.json
-        git commit -m "Update last_checked date"
-        git push
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        echo "Status: ${{ steps.link-check.outputs.status }} (HTTP ${{ steps.link-check.outputs.status_code }})"
