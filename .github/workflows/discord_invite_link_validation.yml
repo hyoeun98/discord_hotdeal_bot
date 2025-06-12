@@ -38,3 +38,14 @@ jobs:
         else
           echo "❌ 링크 무효 (Status: ${{ steps.link-check.outputs.status_code }})"
         fi
+        
+    - name: Update last_checked date in status.json
+      run: |
+        echo "{\"last_checked\": \"$(date +%Y-%m-%d)\"}" > status.json
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git add status.json
+        git commit -m "Update last_checked date"
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
