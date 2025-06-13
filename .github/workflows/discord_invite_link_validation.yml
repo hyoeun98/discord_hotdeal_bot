@@ -1,0 +1,67 @@
+name: Discord Invite Link Validation
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: '0 15 * * *'  # 매일 0시 KST
+  workflow_dispatch:
+
+jobs:
+  validate-link:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Check Discord invite link status
+      id: link-check
+      run: |
+        URL="https://discord.com/oauth2/authorize?client_id=1346055722676260985"
+        response=$(curl -s -I -w "%{http_code}" -o /dev/null "$URL")
+        echo "status_code=$response" >> $GITHUB_OUTPUT
+        if [[ "$response" == "200" || "$response" == "302" ]]; then
+          echo "status=passing" >> $GITHUB_OUTPUT
+          echo "color=success" >> $GITHUB_OUTPUT
+        else
+          echo "status=failing" >> $GITHUB_OUTPUT
+          echo "color=critical" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Update status.json
+      run: |
+        DATE=$(TZ="Asia/Seoul" date "+%Y-%m-%d")
+        STATUS="${{ steps.link-check.outputs.status }}"
+        COLOR="${{ steps.link-check.outputs.color }}"
+
+        echo "{\"schemaVersion\": 1, \"label\": \"Discord Invite Validation\", \"message\": \"$STATUS ($DATE)\", \"color\": \"$COLOR\"}" > status.json
+
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git add status.json
+        
+        if ! git diff --cached --quiet; then
+          git commit -m "Update validation status and date"
+          git push
+        else
+          echo "No changes to commit."
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+    - name: Notify to Discord webhook if invalid
+      if: ${{ steps.link-check.outputs.status == 'failing' }}
+      env:
+        DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      run: |
+        curl -X POST \
+          -H "Content-Type: application/json" \
+          -d "{\"content\":\"❌ Discord 봇 초대 링크가 무효 상태입니다! (Status: ${{ steps.link-check.outputs.status_code }})\"}" \
+          $DISCORD_WEBHOOK
+
+    - name: Print result
+      run: |
+        echo "Status: ${{ steps.link-check.outputs.status }} (HTTP ${{ steps.link-check.outputs.status_code }})"
