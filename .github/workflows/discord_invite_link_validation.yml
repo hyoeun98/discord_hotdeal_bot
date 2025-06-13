@@ -32,12 +32,20 @@ jobs:
 
     - name: Update status.json
       run: |
-        echo "{\"schemaVersion\": 1, \"label\": \"Discord Invite Validation\", \"message\": \"${{ steps.link-check.outputs.status }} ($(date +%Y-%m-%d))\", \"color\": \"${{ steps.link-check.outputs.color }}\"}" > status.json
+        # KST기준 날짜 생성
+        DATE=$(TZ="Asia/Seoul" date +%Y-%m-%d)
+        
+        echo "{\"schemaVersion\": 1, \"label\": \"Discord Invite Validation\", \"message\": \"${{ steps.link-check.outputs.status }} $(date)\", \"color\": \"${{ steps.link-check.outputs.color }}\"}" > status.json
         git config --global user.email "action@github.com"
         git config --global user.name "GitHub Action"
         git add status.json
-        git commit -m "Update validation status and date"
-        git push
+        
+        if ! git diff --cached --quiet; then
+          git commit -m "Update validation status and date"
+          git push
+        else
+          echo "No changes to commit."
+        fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
