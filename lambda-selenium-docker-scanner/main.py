@@ -209,7 +209,14 @@ class QUASAR_ZONE(PAGES):
         finally:
             self.get_item_driver.implicitly_wait(10) 
             return comment_count
+            
+    def is_trend_item(self, **kwargs):
+        comment_count = kwargs["comment_count"]
+        if comment_count >= 30:
+            return True
+        return False
         
+    
     def get_item_links(self):
         try:
             self.get_item_driver.get(self.site_name)
@@ -228,7 +235,7 @@ class QUASAR_ZONE(PAGES):
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                     
-                if comment_count >= 10:
+                if self.is_trend_item({"comment_count" : comment_count}):
                     self.trend_item_link_list.append(item_link)
                 
                 print(f"{item_link} comment : {comment_count} ")
@@ -256,7 +263,13 @@ class ARCA_LIVE(PAGES):
         finally:
             self.get_item_driver.implicitly_wait(10) 
             return comment_count
-        
+    
+    def is_trend_item(self, **kwargs):
+        comment_count = kwargs["comment_count"]
+        if comment_count >= 30:
+            return True
+        return False
+    
     def get_item_links(self):
         try:
             self.get_item_driver.get(self.site_name)
@@ -275,7 +288,7 @@ class ARCA_LIVE(PAGES):
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                 
-                if comment_count >= 10:
+                if self.is_trend_item({"comment_count" : comment_count}):
                     self.trend_item_link_list.append(item_link)
                 
                 print(f"{item_link} comment : {comment_count} ")
@@ -333,7 +346,13 @@ class FM_KOREA(PAGES):
         finally:
             self.get_item_driver.implicitly_wait(10) 
             return comment_count
-        
+    
+    def is_trend_item(self, **kwargs):
+        comment_count = kwargs["comment_count"]
+        if comment_count >= 30:
+            return True
+        return False
+    
     def get_item_links(self):
         try:
             self.get_item_driver.get(self.site_name)
@@ -352,7 +371,7 @@ class FM_KOREA(PAGES):
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                 
-                if comment_count >= 10:
+                if self.is_trend_item({"comment_count" : comment_count}):
                     self.trend_item_link_list.append(item_link)
                 
                 print(f"{item_link} comment : {comment_count} ")
@@ -361,7 +380,7 @@ class FM_KOREA(PAGES):
                 print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
-        
+    
 class PPOM_PPU(PAGES):
     def __init__(self, driver):
         self.site_name = PPOM_PPU_LINK
@@ -377,7 +396,13 @@ class PPOM_PPU(PAGES):
         
         finally:
             return comment_count
-                    
+    
+    def is_trend_item(self, **kwargs):
+        comment_count = kwargs["comment_count"]
+        if comment_count >= 30:
+            return True
+        return False
+    
     def get_item_links(self):
         response = session.get(self.site_name)
         soup = bs(response.content, "html.parser")
@@ -390,7 +415,7 @@ class PPOM_PPU(PAGES):
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                 
-                if comment_count >= 10:
+                if self.is_trend_item({"comment_count" : comment_count}):
                     self.trend_item_link_list.append(item_link)
                 
                 print(f"{item_link} comment : {comment_count} ")
