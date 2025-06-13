@@ -2,7 +2,10 @@
 
 핫딜 게시글이 올라오는 게시판을 크롤링하여 실시간으로 메시지를 보내는 discord bot 입니다.
 
-[디스코드 봇 설치하기(25.05.19)](https://discord.com/oauth2/authorize?client_id=1346055722676260985)
+![Discord Invite Validation](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hyoeun98/hotdeal_bot/main/status.json)
+
+
+[디스코드 봇 설치하기](https://discord.com/oauth2/authorize?client_id=1346055722676260985)
 
 - 프로젝트 소개 및 주요 기능
     - 뽐뿌, 루리웹 등의 핫딜 게시판 크롤링하여 discord 메시지 전송
