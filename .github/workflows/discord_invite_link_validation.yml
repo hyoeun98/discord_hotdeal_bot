@@ -34,7 +34,7 @@ jobs:
       run: |
         # KST기준 날짜 생성
         DATE=$(TZ="Asia/Seoul" date "+%Y-%m-%d")
-        echo "{\"schemaVersion\": 1, \"label\": \"Discord Invite Validation\", \"message\": \"${{ steps.link-check.outputs.status }} $(date)\", \"color\": \"${{ steps.link-check.outputs.color }}\"}" > status.json
+        echo "{\"schemaVersion\": 1, \"label\": \"Discord Invite Validation\", \"message\": \"${{ steps.link-check.outputs.status }} $(DATE)\", \"color\": \"${{ steps.link-check.outputs.color }}\"}" > status.json
         git config --global user.email "action@github.com"
         git config --global user.name "GitHub Action"
         git add status.json
