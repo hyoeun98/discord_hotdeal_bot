@@ -32,9 +32,12 @@ jobs:
 
     - name: Update status.json
       run: |
-        # KST기준 날짜 생성
         DATE=$(TZ="Asia/Seoul" date "+%Y-%m-%d")
-        echo "{\"schemaVersion\": 1, \"label\": \"Discord Invite Validation\", \"message\": \"${{ steps.link-check.outputs.status }} $(DATE)\", \"color\": \"${{ steps.link-check.outputs.color }}\"}" > status.json
+        STATUS="${{ steps.link-check.outputs.status }}"
+        COLOR="${{ steps.link-check.outputs.color }}"
+
+        echo "{\"schemaVersion\": 1, \"label\": \"Discord Invite Validation\", \"message\": \"$STATUS ($DATE)\", \"color\": \"$COLOR\"}" > status.json
+
         git config --global user.email "action@github.com"
         git config --global user.name "GitHub Action"
         git add status.json
@@ -47,6 +50,7 @@ jobs:
         fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
     - name: Notify to Discord webhook if invalid
       if: ${{ steps.link-check.outputs.status == 'failing' }}
