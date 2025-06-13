@@ -235,7 +235,7 @@ class QUASAR_ZONE(PAGES):
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                     
-                if self.is_trend_item({"comment_count" : comment_count}):
+                if self.is_trend_item(comment_count=comment_count):
                     self.trend_item_link_list.append(item_link)
                 
                 print(f"{item_link} comment : {comment_count} ")
@@ -288,7 +288,7 @@ class ARCA_LIVE(PAGES):
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                 
-                if self.is_trend_item({"comment_count" : comment_count}):
+                if self.is_trend_item(comment_count=comment_count):
                     self.trend_item_link_list.append(item_link)
                 
                 print(f"{item_link} comment : {comment_count} ")
@@ -371,7 +371,7 @@ class FM_KOREA(PAGES):
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                 
-                if self.is_trend_item({"comment_count" : comment_count}):
+                if self.is_trend_item(comment_count=comment_count):
                     self.trend_item_link_list.append(item_link)
                 
                 print(f"{item_link} comment : {comment_count} ")
@@ -415,7 +415,7 @@ class PPOM_PPU(PAGES):
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                 
-                if self.is_trend_item({"comment_count" : comment_count}):
+                if self.is_trend_item(comment_count=comment_count):
                     self.trend_item_link_list.append(item_link)
                 
                 print(f"{item_link} comment : {comment_count} ")
