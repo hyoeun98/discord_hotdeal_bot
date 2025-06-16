@@ -174,7 +174,7 @@ class FM_KOREA(PAGES):
                 shopping_mall_link, shopping_mall, item_name, price, delivery, content = map(lambda x: x.text, (shopping_mall_link, shopping_mall, item_name, price, delivery, content))
                 comment = list(map(lambda x: x.text, comment))
                 created_at = driver.find_element(By.CSS_SELECTOR, "#bd_capture > div.rd_hd.clear > div.board.clear > div.top_area.ngeb > span").text
-                category = driver.find_element(By.XPATH, "/html/body/div[1]/div/div/div/div[3]/div/div[2]/div[2]/div/div[1]/span/a").text
+                category = driver.find_element(By.XPATH, "/html/body/div[1]/div/div/div/div[4]/div/div[2]/div[2]/div/div[1]/span/a").text
             except Exception as e:
                 print(f"fail get item link {item_link} {str(e)}")
                 
