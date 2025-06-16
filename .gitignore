@@ -162,3 +162,4 @@ cython_debug/
 error_screenshot/
 *.ipynb
 *.pem
+status.json
