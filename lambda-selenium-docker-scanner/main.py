@@ -27,7 +27,7 @@ DB_PASSWORD = os.environ["DB_PASSWORD"]
 DB_PORT = os.environ["DB_PORT"]
 DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
 SNS_ARN = os.environ["SNS_ARN"]
-TREND_SQS_ARN = os.environ["TREND_SQS_ARN"]
+TREND_SQS_URL = os.environ["TREND_SQS_URL"]
 
 ARCA_LIVE_LINK = "https://arca.live/b/hotdeal"
 RULI_WEB_LINK = "https://bbs.ruliweb.com/market/board/1020?view=default"
@@ -41,7 +41,6 @@ adapter = HTTPAdapter(max_retries=retry)
 session.mount('http://', adapter)
 session.mount('https://', adapter)
 
-item_link_dict = defaultdict(list)
 db_config = {
         "dbname": DB_NAME,
         "user": DB_USER,
@@ -50,6 +49,8 @@ db_config = {
         "port": DB_PORT
     }
 
+sns = boto3.client('sns', region_name=REGION)
+sqs = boto3.client('sqs', region_name=REGION)
 
 def capture_and_send_screenshot(driver, file_name):
     """화면 캡처 후 Discord로 직접 전송"""
@@ -88,17 +89,20 @@ class PAGES(ABC):
         self.trend_item_link_list = []
         self.get_item_driver = driver
         
+    def get_new_item_link(self):
+        db_item_links = self.db_get_item_links()    
+        new_item_link = list(set(self.item_link_list) - set(db_item_links))
+        return new_item_link
+    
     def pub_item_links(self):
         """SNS로 Scan 정보 Publish"""
-        sns = boto3.client('sns', region_name=REGION)
         topic_arn = SNS_ARN
-        db_item_links = self.db_get_item_links()
-        _item_link_list = list(set(self.item_link_list) - set(db_item_links))
-        print(f"new item links : {_item_link_list}")
-        if _item_link_list:
-            message_body = json.dumps(_item_link_list)
+        new_item_link = self.get_only_new_item_link()
+        print(f"new item links : {new_item_link}")
+        if new_item_link:
+            message_body = json.dumps(new_item_link)
             scanned_site = self.__class__.__name__
-            num_item_links = str(len(_item_link_list))
+            num_item_links = str(len(new_item_link))
             
             response = sns.publish(
                 TopicArn=topic_arn,
@@ -114,23 +118,26 @@ class PAGES(ABC):
         else:
             print("not found new item links")
 
+    def get_new_trend_item_link(self):
+        db_trend_item_links = self.db_get_trend_item_links()    
+        new_trend_item_link = list(set(self.trend_item_link_list) - set(db_trend_item_links))
+        return new_trend_item_link
+        
     def pub_trend_item_links(self):
         """SQS로 인기글 정보 Publish"""
-        sqs = boto3.client('sqs', region_name=REGION)
-        topic_arn = TREND_SQS_ARN
-        db_trend_item_links = self.db_get_trend_item_links()
-        _trend_item_link_list = list(set(self.trend_item_link_list) - set(db_trend_item_links))
-        print(f"new trend item links : {_trend_item_link_list}")
-        if _trend_item_link_list:
-            message_body = json.dumps(_trend_item_link_list)
+        queue_url = TREND_SQS_URL
+        new_trend_item_link = self.get_new_trend_item_link()
+        print(f"new trend item links : {new_trend_item_link}")
+        if new_trend_item_link:
+            message_body = json.dumps(new_trend_item_link)
             scanned_site = self.__class__.__name__
-            num_item_links = str(len(_trend_item_link_list))
+            num_item_links = str(len(new_trend_item_link))
             
             response = sqs.send_message(
-                QueueUrl=topic_arn,
+                QueueUrl=queue_url,
                 MessageBody=message_body,
                 MessageAttributes = {
-                    "is_scanning" : {'DataType': 'String', 'StringValue': "1"},
+                    "is_trend" : {'DataType': 'String', 'StringValue': "1"},
                     "site_name" : {'DataType': 'String', 'StringValue': scanned_site},
                     "num_item_links" : {'DataType': 'String', 'StringValue': num_item_links}
                     
@@ -182,6 +189,10 @@ class PAGES(ABC):
     def get_item_links(self):
         pass
         
+    @abstractmethod
+    def is_trend_item(self):
+        pass
+    
     def scanning(self):
         with timer(f"{self.__class__.__name__} get item link"):
             self.get_item_links()
