@@ -492,7 +492,28 @@ def handler(event=None, context=None):
     arca_live.scanning()
 
     driver.quit()
-    
+    ################################
+    # ruliweb 접속 테스트
+    try:
+        url = "https://bbs.ruliweb.com/market/board/1020?view=default"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        soup = bs(response.text, "html.parser")
+        results = []
+
+        for row in soup.select("table.board_list_table tbody tr:not(.notice)"):
+            title_tag = row.select_one("td.subject a.deco")
+            if title_tag:
+                title = title_tag.get_text(strip=True)
+                link = title_tag["href"]
+                results.append({"title": title, "link": link})
+        print(results)
+    except Exception as e:
+        print(f"fail {e}")
+    ################################
     return {
         "statusCode": 200,
         "body": json.dumps(
