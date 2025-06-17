@@ -34,6 +34,7 @@ RULI_WEB_LINK = "https://bbs.ruliweb.com/market/board/1020?view=default"
 PPOM_PPU_LINK = "https://www.ppomppu.co.kr/zboard/zboard.php?id=ppomppu"
 QUASAR_ZONE_LINK = "https://quasarzone.com/bbs/qb_saleinfo"
 FM_KOREA_LINK = "https://www.fmkorea.com/hotdeal"
+COOL_ENJOY_LINK = "https://coolenjoy.net/bbs/jirum"
 
 session = requests.Session()
 retry = Retry(connect=2, backoff_factor=0.5)
@@ -434,7 +435,49 @@ class PPOM_PPU(PAGES):
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
                 break
+
+class COOL_ENJOY(PAGES):
+    def __init__(self, driver):
+        self.site_name = COOL_ENJOY_LINK
+        super().__init__(driver)
+
+    def get_comment_count(self, item):
+        try:
+            comment_count = item.find(class_="win_imgbox me-a").text
+            comment_count = int(comment_count)
         
+        except Exception as e:
+            comment_count = 0
+        
+        finally:
+            return comment_count
+    
+    def is_trend_item(self, **kwargs):
+        comment_count = kwargs["comment_count"]
+        if comment_count >= 30:
+            return True
+        return False
+    
+    def get_item_links(self):
+        response = session.get(self.site_name)
+        soup = bs(response.content, "html.parser")
+        
+        for item in soup.find_all(class_= "na-item")[3:]:
+            try:
+                item_link_element = item.find(class_="na-subject")
+                item_link = item_link_element.attrs["href"]
+                self.item_link_list.append(item_link)
+                comment_count = self.get_comment_count(item)
+                
+                if self.is_trend_item(comment_count=comment_count):
+                    self.trend_item_link_list.append(item_link)
+                
+                print(f"{item_link} comment : {comment_count} ")
+                
+            except Exception as e:
+                print(f"fail get item links {item_link} {e}")
+                break
+            
 def set_driver():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.binary_location = "/opt/chrome/chrome"
@@ -492,7 +535,28 @@ def handler(event=None, context=None):
     arca_live.scanning()
 
     driver.quit()
+    ################################
+    # ruliweb 접속 테스트
+    try:
+        url = "https://bbs.ruliweb.com/market/board/1020?view=default"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        soup = bs(response.text, "html.parser")
+        results = []
 
+        for row in soup.select("table.board_list_table tbody tr:not(.notice)"):
+            title_tag = row.select_one("td.subject a.deco")
+            if title_tag:
+                title = title_tag.get_text(strip=True)
+                link = title_tag["href"]
+                results.append({"title": title, "link": link})
+        print(results)
+    except Exception as e:
+        print(f"fail {e}")
+    ################################
     return {
         "statusCode": 200,
         "body": json.dumps(
