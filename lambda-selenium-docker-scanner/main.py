@@ -97,7 +97,7 @@ class PAGES(ABC):
     def pub_item_links(self):
         """SNS로 Scan 정보 Publish"""
         topic_arn = SNS_ARN
-        new_item_link = self.get_only_new_item_link()
+        new_item_link = self.get_new_item_link()
         print(f"new item links : {new_item_link}")
         if new_item_link:
             message_body = json.dumps(new_item_link)
