@@ -22,6 +22,7 @@ RULI_WEB_LINK = "https://bbs.ruliweb.com/market/board/1020?view=default"
 PPOM_PPU_LINK = "https://www.ppomppu.co.kr/zboard/zboard.php?id=ppomppu"
 QUASAR_ZONE_LINK = "https://quasarzone.com/bbs/qb_saleinfo"
 FM_KOREA_LINK = "https://www.fmkorea.com/hotdeal"
+COOL_ENJOY_LINK = "https://coolenjoy.net/bbs/jirum"
 
 session = requests.Session()
 retry = Retry(connect=2, backoff_factor=0.5)
@@ -202,7 +203,7 @@ class PPOM_PPU(PAGES):
             driver.get(item_link)
     
             try:
-                created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment = "err", "err", "err", "err", "err", "err", "err", "err"
+                created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
                 item_name = driver.find_element(By.CSS_SELECTOR, "#topTitle > h1").text
                 content = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/table[3]/tbody/tr[1]/td/table/tbody/tr/td").text
                 comment = driver.find_element(By.ID, "quote").text
@@ -226,11 +227,46 @@ class PPOM_PPU(PAGES):
                     "item_name" : item_name,
                     "delivery" : delivery,
                     "content" : content,
-                    "category" : "None"
+                    "category" : category
                 }
                 print(result)
                 self.pub_item_links(result)
+
+class COOL_ENJOY(PAGES):
+    def __init__(self):
+        self.site_name = COOL_ENJOY_LINK
                 
+    def crawling(self, driver, item_link_list):
+        for item_link in item_link_list:
+            driver.get(item_link)
+    
+            try:
+                created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
+                item_name = driver.find_element(By.CSS_SELECTOR, "#bo_v_title").text
+                category = driver.find_element(By.CSS_SELECTOR, "bo_v_title > span").text
+                content = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[2]/div[1]/div[2]/article/section[2]/div/div[2]").text
+                comment = driver.find_element(By.ID, "bo_vc").text
+                created_at = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[2]/div[1]/div[2]/article/section[1]/div[1]/ul/li[3]/time").text
+                shopping_mall_link = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[2]/div[1]/div[2]/article/section[2]/ul/li/div/div/div[2]/a").text
+
+            except Exception as e:
+                print(f"fail get item link {item_link} {str(e)}")
+                
+            finally:
+                result = {
+                    "created_at" : created_at,
+                    "item_link" : item_link,
+                    "shopping_mall_link" : shopping_mall_link,
+                    "shopping_mall" : shopping_mall,
+                    "price" : price,
+                    "item_name" : item_name,
+                    "delivery" : delivery,
+                    "content" : content,
+                    "category" : category
+                }
+                print(result)
+                self.pub_item_links(result)
+                                
 def set_driver():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.binary_location = "/opt/chrome/chrome"
