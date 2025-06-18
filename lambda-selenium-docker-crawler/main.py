@@ -243,8 +243,10 @@ class COOL_ENJOY(PAGES):
     
             try:
                 created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
-                item_name = driver.find_element(By.XPATH, '//*[@id="bo_v_title"]/span').text
-                category = driver.find_element(By.XPATH, '//*[@id="bo_v_title"]').text
+                title_text = driver.find_element(By.XPATH, '//*[@id="bo_v_title"]').text
+                split_idx = title_text.find("|")
+                category = title_text[:split_idx].strip()
+                item_name = title_text[split_idx+1:].strip()
                 content = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[2]/div[1]/div[2]/article/section[2]/div/div[2]").text
                 comment = driver.find_element(By.ID, "bo_vc").text
                 created_at = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[2]/div[1]/div[2]/article/section[1]/div[1]/ul/li[3]/time").text
