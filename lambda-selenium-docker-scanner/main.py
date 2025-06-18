@@ -523,6 +523,7 @@ def handler(event=None, context=None):
     fm_korea = FM_KOREA(driver)
     # ruli_web = RULI_WEB(driver)
     arca_live = ARCA_LIVE(driver)
+    cool_enjoy = COOL_ENJOY(driver)
     
     # 루리웹 접속 불가로 인해 주석 처리 Message: unknown error: net::ERR_CONNECTION_TIMED_OUT
     # current = time.time()
@@ -533,29 +534,29 @@ def handler(event=None, context=None):
     ppom_ppu.scanning()
     fm_korea.scanning()    
     arca_live.scanning()
-
+    cool_enjoy.scanning()
     driver.quit()
     ################################
     # ruliweb 접속 테스트
-    try:
-        url = "https://bbs.ruliweb.com/market/board/1020?view=default"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        soup = bs(response.text, "html.parser")
-        results = []
+    # try:
+    #     url = "https://bbs.ruliweb.com/market/board/1020?view=default"
+    #     headers = {
+    #         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    #     }
+    #     response = requests.get(url, headers=headers)
+    #     response.raise_for_status()
+    #     soup = bs(response.text, "html.parser")
+    #     results = []
 
-        for row in soup.select("table.board_list_table tbody tr:not(.notice)"):
-            title_tag = row.select_one("td.subject a.deco")
-            if title_tag:
-                title = title_tag.get_text(strip=True)
-                link = title_tag["href"]
-                results.append({"title": title, "link": link})
-        print(results)
-    except Exception as e:
-        print(f"fail {e}")
+    #     for row in soup.select("table.board_list_table tbody tr:not(.notice)"):
+    #         title_tag = row.select_one("td.subject a.deco")
+    #         if title_tag:
+    #             title = title_tag.get_text(strip=True)
+    #             link = title_tag["href"]
+    #             results.append({"title": title, "link": link})
+    #     print(results)
+    # except Exception as e:
+    #     print(f"fail {e}")
     ################################
     return {
         "statusCode": 200,
