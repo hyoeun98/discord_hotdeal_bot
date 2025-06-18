@@ -250,7 +250,7 @@ class COOL_ENJOY(PAGES):
                 content = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[2]/div[1]/div[2]/article/section[2]/div/div[2]").text
                 comment = driver.find_element(By.ID, "bo_vc").text
                 created_at = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[2]/div[1]/div[2]/article/section[1]/div[1]/ul/li[3]/time").text
-                shopping_mall_link = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[2]/div[1]/div[2]/article/section[2]/ul/li/div/div/div[2]/a").get_attribute("href")
+                shopping_mall_link = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[2]/div[1]/div[2]/article/section[2]/ul/li/div/div/div[2]/a/text()")
                 shopping_mall_candidate = re.search(r'\[([^]]+)\]', item_name)
                 if shopping_mall_candidate:
                     shopping_mall = shopping_mall_candidate.group(1)
