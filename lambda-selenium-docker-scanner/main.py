@@ -510,6 +510,7 @@ class EOMI_SAE(PAGES):
             try:
                 item_link_element = item.find(class_="pjax hx")
                 item_link = item_link_element.attrs["href"]
+                print(item_link)
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                 
