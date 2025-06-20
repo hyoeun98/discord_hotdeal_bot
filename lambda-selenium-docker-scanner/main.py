@@ -17,6 +17,7 @@ from datetime import datetime
 from stealthenium import stealth
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+import yaml
 
 QUEUE_URL = os.environ["QUEUE_URL"]
 REGION = os.environ.get("REGION", "ap-northeast-2")
@@ -36,6 +37,16 @@ QUASAR_ZONE_LINK = "https://quasarzone.com/bbs/qb_saleinfo"
 FM_KOREA_LINK = "https://www.fmkorea.com/hotdeal"
 COOL_ENJOY_LINK = "https://coolenjoy.net/bbs/jirum"
 EOMI_SAE_LINK = "https://eomisae.co.kr/fs"
+
+def load_selectors():
+    # It's good practice to specify the full path if the script might be run from different directories
+    # However, assuming selectors.yml is in the same directory as main.py for now.
+    # If issues arise, make this path absolute or relative to a known base path.
+    # Path changed to "selectors.yml" to be relative to main.py's execution directory (/var/task in Docker)
+    with open("selectors.yml", "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+ALL_SELECTORS = load_selectors()
 
 session = requests.Session()
 retry = Retry(connect=2, backoff_factor=0.5)
@@ -209,11 +220,13 @@ class QUASAR_ZONE(PAGES):
     def __init__(self, driver):
         self.site_name = QUASAR_ZONE_LINK
         super().__init__(driver)
+        self.selectors = ALL_SELECTORS['QUASAR_ZONE']
 
     def get_comment_count(self, item):
         self.get_item_driver.implicitly_wait(1) 
+        s_config = self.selectors['get_comment_count']
         try:
-            comment_count = item.find_element(By.CLASS_NAME, "board-list-comment")
+            comment_count = item.find_element(By.CLASS_NAME, s_config['comment_count_class_name'])
             comment_count = int(comment_count.text)
         
         except Exception as e:
@@ -237,11 +250,12 @@ class QUASAR_ZONE(PAGES):
             print(f"{self.site_name} 접속 실패 {str(e)}")
             return
         
+        s_config = self.selectors['get_item_links']
         for i in range(1, 31):
             try:
                 item_link = "err"
-                find_item_css_selector = f"#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div"
-                find_item_link_css_selector = "div.market-info-list-cont > p > a"
+                find_item_css_selector = s_config['find_item_css_selector'].format(i=i)
+                find_item_link_css_selector = s_config['find_item_link_css_selector']
                 
                 item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_item_css_selector)
                 item_link = item.find_element(By.CSS_SELECTOR, find_item_link_css_selector).get_attribute("href")
@@ -262,12 +276,13 @@ class ARCA_LIVE(PAGES):
     def __init__(self, driver):
         self.site_name = ARCA_LIVE_LINK
         super().__init__(driver)
+        self.selectors = ALL_SELECTORS['ARCA_LIVE']
 
     def get_comment_count(self, item):
         self.get_item_driver.implicitly_wait(1)
-        find_comment_count_xpath_selector = "./div/div/span[2]/a/span[2]/span"
+        s_config = self.selectors['get_comment_count']
         try:
-            comment_count = item.find_element(By.XPATH, find_comment_count_xpath_selector)
+            comment_count = item.find_element(By.XPATH, s_config['find_comment_count_xpath_selector'])
             comment_count = int(comment_count.text[1:-1])
         
         except Exception as e:
@@ -290,13 +305,14 @@ class ARCA_LIVE(PAGES):
             print(f"{self.site_name} 접속 실패 {str(e)}")
             return
         
-        for i in range(2, 27):
+        s_config = self.selectors['get_item_links']
+        for i in range(2, 27): # TODO: Consider moving loop range to selectors.yml if it varies often
             try:
                 item_link = "err"
-                find_item_xapth_selector = f"/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]"
-                find_item_link_xpath_selector = "./div/div/span[2]/a"
+                find_item_xpath_selector = s_config['find_item_xpath_selector'].format(i=i)
+                find_item_link_xpath_selector = s_config['find_item_link_xpath_selector']
                 
-                item = self.get_item_driver.find_element(By.XPATH, find_item_xapth_selector)
+                item = self.get_item_driver.find_element(By.XPATH, find_item_xpath_selector)
                 item_link = item.find_element(By.XPATH, find_item_link_xpath_selector).get_attribute("href")
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
@@ -346,11 +362,13 @@ class FM_KOREA(PAGES):
     def __init__(self, driver):
         self.site_name = FM_KOREA_LINK
         super().__init__(driver)
+        self.selectors = ALL_SELECTORS['FM_KOREA']
     
     def get_comment_count(self, item):
         self.get_item_driver.implicitly_wait(1)
+        s_config = self.selectors['get_comment_count']
         try:
-            comment_count = item.find_element(By.CLASS_NAME, "comment_count")
+            comment_count = item.find_element(By.CLASS_NAME, s_config['comment_count_class_name'])
             comment_count = int(comment_count.text[1:-1])
         
         except Exception as e:
@@ -373,11 +391,12 @@ class FM_KOREA(PAGES):
             print(f"{self.site_name} 접속 실패 {str(e)}")
             return
         
-        for i in range(1, 21):
+        s_config = self.selectors['get_item_links']
+        for i in range(1, 21): # TODO: Consider moving loop range to selectors.yml
             try:
                 item_link = "err"
-                find_item_css_selector = f"#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i})"
-                find_item_link_css_selector = "div > h3 > a"
+                find_item_css_selector = s_config['find_item_css_selector'].format(i=i)
+                find_item_link_css_selector = s_config['find_item_link_css_selector']
                 
                 item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_item_css_selector)
                 item_link = item.find_element(By.CSS_SELECTOR, find_item_link_css_selector).get_attribute("href")
@@ -398,10 +417,12 @@ class PPOM_PPU(PAGES):
     def __init__(self, driver):
         self.site_name = PPOM_PPU_LINK
         super().__init__(driver)
+        self.selectors = ALL_SELECTORS['PPOM_PPU']
 
     def get_comment_count(self, item):
+        s_config = self.selectors['get_comment_count']
         try:
-            comment_count = item.find(class_="baseList-c").text
+            comment_count = item.find(class_=s_config['comment_count_class']).text
             comment_count = int(comment_count)
         
         except Exception as e:
@@ -419,12 +440,14 @@ class PPOM_PPU(PAGES):
     def get_item_links(self):
         response = session.get(self.site_name)
         soup = bs(response.content, "html.parser")
+        s_config = self.selectors['get_item_links']
         
-        for item in soup.find_all(class_= ["baseList", "bbs_new1"])[:20]:
+        # TODO: Consider moving slice [:20] to selectors.yml if it varies
+        for item in soup.find_all(class_=s_config['item_list_classes'])[:20]:
             try:
-                item_link_element = item.find(class_="baseList-thumb")
-                item_link = "https://www.ppomppu.co.kr/zboard/" + item_link_element.attrs["href"]
-                item_link = item_link.replace("&&", "&")
+                item_link_element = item.find(class_=s_config['item_link_class'])
+                item_link = s_config['item_link_href_prefix'] + item_link_element.attrs["href"]
+                item_link = item_link.replace("&&", "&") # This specific string replacement might be better handled if it's a common pattern
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                 
@@ -441,10 +464,12 @@ class COOL_ENJOY(PAGES):
     def __init__(self, driver):
         self.site_name = COOL_ENJOY_LINK
         super().__init__(driver)
+        self.selectors = ALL_SELECTORS['COOL_ENJOY']
 
     def get_comment_count(self, item):
+        s_config = self.selectors['get_comment_count']
         try:
-            comment_count = item.find(class_="win_imgbox me-a").text
+            comment_count = item.find(class_=s_config['comment_count_class']).text
             comment_count = int(comment_count)
         
         except Exception as e:
@@ -462,10 +487,12 @@ class COOL_ENJOY(PAGES):
     def get_item_links(self):
         response = session.get(self.site_name)
         soup = bs(response.content, "html.parser")
+        s_config = self.selectors['get_item_links']
         
-        for item in soup.find_all(class_= "na-item")[3:]:
+        # TODO: Consider moving slice [3:] to selectors.yml if it varies
+        for item in soup.find_all(class_=s_config['item_list_class'])[3:]:
             try:
-                item_link_element = item.find(class_="na-subject")
+                item_link_element = item.find(class_=s_config['item_link_class'])
                 item_link = item_link_element.attrs["href"]
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
@@ -484,11 +511,13 @@ class EOMI_SAE(PAGES):
     def __init__(self, driver):
         self.site_name = EOMI_SAE_LINK
         super().__init__(driver)
+        self.selectors = ALL_SELECTORS['EOMI_SAE']
 
     def get_comment_count(self, item):
+        s_config = self.selectors['get_comment_count']
         try:
-            comment_count = item.find_element(By.CSS_SELECTOR, "div > div.card_content > div.infos > span:nth-child(2) > i").text
-            print(comment_count)
+            comment_count = item.find_element(By.CSS_SELECTOR, s_config['comment_count_css_selector']).text
+            print(comment_count) # This print might be for debugging, consider removing for production
             comment_count = int(comment_count)
         
         except Exception as e:
@@ -510,11 +539,12 @@ class EOMI_SAE(PAGES):
             print(f"{self.site_name} 접속 실패 {str(e)}")
             return
         
-        for i in range(2, 22):
+        s_config = self.selectors['get_item_links']
+        for i in range(2, 22): # TODO: Consider moving loop range to selectors.yml
             try:
                 item_link = "err"
-                find_item_css_selector = f"#L_ > div._bd.cf.clear > div.card_wrap > div > div:nth-child({i})"
-                find_item_link_class_name = "pjax"
+                find_item_css_selector = s_config['find_item_css_selector'].format(i=i)
+                find_item_link_class_name = s_config['find_item_link_class_name']
                 
                 item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_item_css_selector)
                 item_link = item.find_element(By.CLASS_NAME, find_item_link_class_name).get_attribute("href")
