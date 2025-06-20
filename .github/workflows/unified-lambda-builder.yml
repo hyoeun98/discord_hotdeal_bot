@@ -45,17 +45,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ matrix.name }}
+          key: ${{ runner.os }}-buildx-shared
           restore-keys: |
-            ${{ runner.os }}-buildx-${{ matrix.name }}
+            ${{ runner.os }}-buildx-shared
 
       - name: Create persistent Buildx builder
         run: |
-          docker buildx create --name lambda-builder-${{ matrix.name }} --use --bootstrap || echo "Builder already exists"
+          docker buildx create --name lambda-builder-shared --use --bootstrap || echo "Builder already exists"
 
       - name: Build Docker image
         run: |
-          docker buildx build             --builder lambda-builder-${{ matrix.name }}             --platform linux/amd64             --cache-from type=local,src=/tmp/.buildx-cache             --cache-to type=local,dest=/tmp/.buildx-cache             --output type=docker             -t ${{ matrix.name }}:build             ./${{ matrix.path }}
+          docker buildx build             --builder lambda-builder-shared             --platform linux/amd64             --cache-from type=local,src=/tmp/.buildx-cache             --cache-to type=local,dest=/tmp/.buildx-cache             --output type=docker             -t ${{ matrix.name }}:build             ./${{ matrix.path }}
 
       - name: Tag Docker image
         run: |
@@ -69,7 +69,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ matrix.name }}
+          key: ${{ runner.os }}-buildx-shared
 
       - name: Update Lambda function to use new image
         run: |
