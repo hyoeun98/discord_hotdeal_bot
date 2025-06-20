@@ -35,6 +35,7 @@ PPOM_PPU_LINK = "https://www.ppomppu.co.kr/zboard/zboard.php?id=ppomppu"
 QUASAR_ZONE_LINK = "https://quasarzone.com/bbs/qb_saleinfo"
 FM_KOREA_LINK = "https://www.fmkorea.com/hotdeal"
 COOL_ENJOY_LINK = "https://coolenjoy.net/bbs/jirum"
+EOMI_SAE_LINK = "https://eomisae.co.kr/fs"
 
 session = requests.Session()
 retry = Retry(connect=2, backoff_factor=0.5)
@@ -478,6 +479,48 @@ class COOL_ENJOY(PAGES):
                 print(f"fail get item links {item_link} {e}")
                 break
             
+class EOMI_SAE(PAGES):
+    def __init__(self, driver):
+        self.site_name = EOMI_SAE_LINK
+        super().__init__(driver)
+
+    def get_comment_count(self, item):
+        try:
+            comment_count = item.find(class_="ion-ios-chatbubble").text
+            comment_count = int(comment_count)
+        
+        except Exception as e:
+            comment_count = 0
+        
+        finally:
+            return comment_count
+    
+    def is_trend_item(self, **kwargs):
+        comment_count = kwargs["comment_count"]
+        if comment_count >= 30:
+            return True
+        return False
+    
+    def get_item_links(self):
+        response = session.get(self.site_name)
+        soup = bs(response.content, "html.parser")
+        
+        for item in soup.find_all(class_= "card_el n_ntc clear"):
+            try:
+                item_link_element = item.find(class_="na-subject")
+                item_link = item_link_element.attrs["href"]
+                self.item_link_list.append(item_link)
+                comment_count = self.get_comment_count(item)
+                
+                if self.is_trend_item(comment_count=comment_count):
+                    self.trend_item_link_list.append(item_link)
+                
+                print(f"{item_link} comment : {comment_count} ")
+                
+            except Exception as e:
+                print(f"fail get item links {item_link} {e}")
+                break
+            
 def set_driver():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.binary_location = "/opt/chrome/chrome"
@@ -524,7 +567,7 @@ def handler(event=None, context=None):
     # ruli_web = RULI_WEB(driver)
     arca_live = ARCA_LIVE(driver)
     cool_enjoy = COOL_ENJOY(driver)
-    
+    eomi_sae = EOMI_SAE(driver)
     # 루리웹 접속 불가로 인해 주석 처리 Message: unknown error: net::ERR_CONNECTION_TIMED_OUT
     # current = time.time()
     # ruli_web.get_item_links(driver)
@@ -535,11 +578,12 @@ def handler(event=None, context=None):
     fm_korea.scanning()    
     arca_live.scanning()
     cool_enjoy.scanning()
+    eomi_sae.scanning()
     driver.quit()
     ################################
-    # ruliweb 접속 테스트
+    # 접속 테스트
     # try:
-    #     url = "https://bbs.ruliweb.com/market/board/1020?view=default"
+    #     url = "https://eomisae.co.kr/fs"
     #     headers = {
     #         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     #     }
