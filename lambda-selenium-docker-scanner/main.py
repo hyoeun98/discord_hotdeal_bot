@@ -37,15 +37,18 @@ FM_KOREA_LINK = "https://www.fmkorea.com/hotdeal"
 COOL_ENJOY_LINK = "https://coolenjoy.net/bbs/jirum"
 EOMI_SAE_LINK = "https://eomisae.co.kr/fs"
 
-session = requests.Session()
+
+headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}   
+
+session = requests.Session(headers=headers)
 retry = Retry(connect=2, backoff_factor=0.5)
 adapter = HTTPAdapter(max_retries=retry)
 session.mount('http://', adapter)
 session.mount('https://', adapter)
 
-headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+
 
 db_config = {
         "dbname": DB_NAME,
@@ -507,7 +510,7 @@ class EOMI_SAE(PAGES):
         return False
     
     def get_item_links(self):
-        response = session.get(self.site_name, headers=headers)
+        response = session.get(self.site_name)
         soup = bs(response.content, "html.parser")
         print(soup)
         for item in soup.find_all(class_="card_el n_ntc clear"):
