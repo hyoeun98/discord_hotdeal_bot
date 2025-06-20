@@ -493,7 +493,7 @@ class EOMI_SAE(PAGES):
 
     def get_comment_count(self, item):
         try:
-            comment_count = item.find(class_="ion-ios-chatbubble").text
+            comment_count = item.find_element(By.CLASS_NAME, "ion-ios-chatbubble").text
             print(comment_count)
             comment_count = int(comment_count)
         
@@ -510,14 +510,20 @@ class EOMI_SAE(PAGES):
         return False
     
     def get_item_links(self):
-        response = session.get(self.site_name)
-        soup = bs(response.content, "html.parser")
-        print(soup)
-        for item in soup.find_all(class_="card_el n_ntc clear"):
+        try:
+            self.get_item_driver.get(self.site_name)
+        except Exception as e:
+            print(f"{self.site_name} 접속 실패 {str(e)}")
+            return
+        
+        for i in range(2, 22):
             try:
-                item_link_element = item.find(class_="pjax hx")
-                item_link = item_link_element.attrs["href"]
-                print(item_link)
+                item_link = "err"
+                find_item_css_selector = f"#L_ > div._bd.cf.clear > div.card_wrap > div > div:nth-child({i})"
+                find_item_link_class_name = "pjax hx"
+                
+                item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_item_css_selector)
+                item_link = item.find_element(By.CLASS_NAME, find_item_link_class_name).get_attribute("href")
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
                 
@@ -528,6 +534,7 @@ class EOMI_SAE(PAGES):
                 
             except Exception as e:
                 print(f"fail get item links {item_link} {e}")
+                capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
             
 def set_driver():
