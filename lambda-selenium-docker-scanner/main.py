@@ -493,7 +493,7 @@ class EOMI_SAE(PAGES):
 
     def get_comment_count(self, item):
         try:
-            comment_count = item.find_element(By.CLASS_NAME, "ion-ios-chatbubble").text
+            comment_count = item.find_element(By.CSS_SELECTOR, "div > div.card_content > div.infos > span:nth-child(2) > i").text
             print(comment_count)
             comment_count = int(comment_count)
         
