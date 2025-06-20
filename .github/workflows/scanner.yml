@@ -1,47 +1,47 @@
-name: Build and Push Docker Image scanner
+name: Build and Push Docker Image scanner # Docker 이미지 스캐너 빌드 및 푸시
 
 on:
   push:
     branches:
-      - main
+      - main # main 브랜치에 푸시될 때
     paths:
-      - "lambda-selenium-docker-scanner/**"
+      - "lambda-selenium-docker-scanner/**" # lambda-selenium-docker-scanner 디렉토리 하위 파일 변경 시
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # ubuntu 최신 버전에서 실행
     steps:
-      - name: Checkout code
+      - name: Checkout code # 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
+      - name: Set up Docker Buildx # Docker Buildx 설정
         uses: docker/setup-buildx-action@v3
         with:
-          install: true
+          install: true # Buildx 설치
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials # AWS 자격 증명 구성
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }} # AWS 액세스 키 ID
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }} # AWS 비밀 액세스 키
+          aws-region: ap-northeast-2 # AWS 리전
 
-      - name: Login to Amazon ECR
+      - name: Login to Amazon ECR # Amazon ECR에 로그인
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Restore Docker cache
+      - name: Restore Docker cache # Docker 캐시 복원
         uses: actions/cache@v4
         with:
-          path: /tmp/.scanner-buildx-cache
-          key: scanner-buildx-cache
-          restore-keys: scanner-buildx-
+          path: /tmp/.scanner-buildx-cache # 캐시 경로
+          key: scanner-buildx-cache # 캐시 키
+          restore-keys: scanner-buildx- # 이전 캐시 키
 
-      - name: Create persistent Buildx builder
+      - name: Create persistent Buildx builder # 영구 Buildx 빌더 생성
         run: |
-          docker buildx create --name lambda-builder --use --bootstrap || echo "Builder already exists"
+          docker buildx create --name lambda-builder --use --bootstrap || echo "Builder already exists" # lambda-builder 이름으로 Buildx 빌더 생성 또는 이미 존재하면 메시지 출력
 
-      - name: Build Docker image
+      - name: Build Docker image # Docker 이미지 빌드
         run: |
           docker buildx build \
             --builder lambda-builder \
@@ -50,24 +50,24 @@ jobs:
             --cache-to type=local,dest=/tmp/.scanner-buildx-cache \
             --output type=docker \
             -t scanner:build \
-            ./lambda-selenium-docker-scanner
+            ./lambda-selenium-docker-scanner # lambda-builder를 사용하여 linux/amd64 플랫폼용 Docker 이미지 빌드 및 캐시 활용
 
-      - name: Tag Docker image
+      - name: Tag Docker image # Docker 이미지 태깅
         run: |
-          docker tag scanner:build ${{ steps.login-ecr.outputs.registry }}/scanner:latest
+          docker tag scanner:build ${{ steps.login-ecr.outputs.registry }}/scanner:latest # 빌드된 Docker 이미지를 ECR 레지스트리 주소와 latest 태그로 태깅
 
-      - name: Push Docker image
+      - name: Push Docker image # Docker 이미지 푸시
         run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/scanner:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/scanner:latest # 태깅된 Docker 이미지를 ECR 레지스트리로 푸시
 
-      - name: Save Docker cache
+      - name: Save Docker cache # Docker 캐시 저장
         uses: actions/cache@v4
         with:
-          path: /tmp/.scanner-buildx-cache
-          key: scanner-buildx-cache
+          path: /tmp/.scanner-buildx-cache # 캐시 경로
+          key: scanner-buildx-cache # 캐시 키
 
-      - name: Update Lambda function to use new image
+      - name: Update Lambda function to use new image # 새 이미지를 사용하도록 Lambda 함수 업데이트
         run: |
           aws lambda update-function-code \
             --function-name scanner \
-            --image-uri ${{ steps.login-ecr.outputs.registry }}/scanner:latest
+            --image-uri ${{ steps.login-ecr.outputs.registry }}/scanner:latest # scanner Lambda 함수의 코드를 새로 푸시된 ECR 이미지로 업데이트
