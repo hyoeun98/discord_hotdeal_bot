@@ -13,6 +13,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from datetime import datetime
 
 QUEUE_URL = os.environ["QUEUE_URL"]
 REGION = os.environ.get("REGION", "ap-northeast-2")
@@ -31,6 +32,36 @@ adapter = HTTPAdapter(max_retries=retry)
 session.mount('http://', adapter)
 session.mount('https://', adapter)
 
+def capture_and_send_screenshot(driver, file_name):
+    """화면 캡처 후 Discord로 직접 전송"""
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    local_file = f"/tmp/{file_name}_{timestamp}.png"
+    
+    # 화면 캡처
+    driver.save_screenshot(local_file)
+    
+    # Discord로 전송
+    with open(local_file, "rb") as f:
+        files = {"file": (local_file, f, "image/png")}
+        payload = {"content": f"에러 발생 스크린샷"}
+        response = requests.post(DISCORD_WEBHOOK, data=payload, files=files)
+    
+    page_source = driver.page_source
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    file_path = f'/tmp/{timestamp}_page.html'
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(page_source)
+    
+    with open(file_path, "rb") as f:
+        files = {"file": (file_path, f, "text/html")}
+        payload = {"content": f"에러 발생 페이지 소스"}
+        response = requests.post(DISCORD_WEBHOOK, data=payload, files=files)
+    
+    # 전송 결과 확인
+    print(f"response code : {response.status_code}")
+    print(response.text)
+    
 class PAGES: 
     """각 Page들의 SuperClass"""
     def __init__(self):
@@ -322,7 +353,7 @@ def set_driver():
     chrome_options.add_argument('window-size=1392x1150')
     chrome_options.add_argument("disable-gpu")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     chrome_options.add_argument('--incognito')
     service = Service(executable_path="/opt/chromedriver")
     driver = webdriver.Chrome(service=service, options=chrome_options)
