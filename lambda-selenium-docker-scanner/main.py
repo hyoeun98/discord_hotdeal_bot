@@ -520,7 +520,7 @@ class EOMI_SAE(PAGES):
             try:
                 item_link = "err"
                 find_item_css_selector = f"#L_ > div._bd.cf.clear > div.card_wrap > div > div:nth-child({i})"
-                find_item_link_class_name = "pjax hx"
+                find_item_link_class_name = "pjax"
                 
                 item = self.get_item_driver.find_element(By.CSS_SELECTOR, find_item_css_selector)
                 item_link = item.find_element(By.CLASS_NAME, find_item_link_class_name).get_attribute("href")
