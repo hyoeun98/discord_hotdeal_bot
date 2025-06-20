@@ -43,6 +43,10 @@ adapter = HTTPAdapter(max_retries=retry)
 session.mount('http://', adapter)
 session.mount('https://', adapter)
 
+headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
 db_config = {
         "dbname": DB_NAME,
         "user": DB_USER,
@@ -503,7 +507,7 @@ class EOMI_SAE(PAGES):
         return False
     
     def get_item_links(self):
-        response = session.get(self.site_name)
+        response = session.get(self.site_name, headers=headers)
         soup = bs(response.content, "html.parser")
         print(soup)
         for item in soup.find_all(class_="card_el n_ntc clear"):
