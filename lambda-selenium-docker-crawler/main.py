@@ -23,6 +23,7 @@ PPOM_PPU_LINK = "https://www.ppomppu.co.kr/zboard/zboard.php?id=ppomppu"
 QUASAR_ZONE_LINK = "https://quasarzone.com/bbs/qb_saleinfo"
 FM_KOREA_LINK = "https://www.fmkorea.com/hotdeal"
 COOL_ENJOY_LINK = "https://coolenjoy.net/bbs/jirum"
+EOMI_SAE_LINK = "https://eomisae.co.kr/fs"
 
 session = requests.Session()
 retry = Retry(connect=2, backoff_factor=0.5)
@@ -271,7 +272,43 @@ class COOL_ENJOY(PAGES):
                 }
                 print(result)
                 self.pub_item_links(result)
-                                
+                           
+class EOMI_SAE(PAGES):
+    def __init__(self):
+        self.site_name = EOMI_SAE_LINK
+                
+    def crawling(self, driver, item_link_list):
+        for item_link in item_link_list:
+            driver.get(item_link)
+    
+    
+            try:
+                created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
+                item_name = driver.find_element(By.XPATH, '//*[@id="D_"]/div[1]/div[1]/div[1]/h2/a').text
+                category = driver.find_element(By.XPATH, '//*[@id="D_"]/div[1]/div[1]/div[1]/h2/span').text
+                content = driver.find_element(By.XPATH, '//*[@id="D_"]/div[1]/div[2]/article/div[3]').text
+                comment = driver.find_element(By.CLASS_NAME, "_comment").text
+                created_at = driver.find_element(By.XPATH, '//*[@id="D_"]/div[1]/div[1]/div[2]/span[5]').text
+                shopping_mall_link = driver.find_element(By.XPATH, '//*[@id="D_"]/div[1]/div[2]/table/tbody/tr/td/a').get_attribute("href")
+                
+            except Exception as e:
+                print(f"fail get item link {item_link} {str(e)}")
+                
+            finally:
+                result = {
+                    "created_at" : created_at,
+                    "item_link" : item_link,
+                    "shopping_mall_link" : shopping_mall_link,
+                    "shopping_mall" : shopping_mall,
+                    "price" : price,
+                    "item_name" : item_name,
+                    "delivery" : delivery,
+                    "content" : content,
+                    "category" : category
+                }
+                print(result)
+                self.pub_item_links(result)
+                     
 def set_driver():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.binary_location = "/opt/chrome/chrome"
