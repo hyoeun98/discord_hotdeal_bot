@@ -17,7 +17,7 @@ from datetime import datetime
 
 QUEUE_URL = os.environ["QUEUE_URL"]
 REGION = os.environ.get("REGION", "ap-northeast-2")
-DISCORD_WEBHOOK = os.environ["DISCORD"]
+DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
 
 ARCA_LIVE_LINK = "https://arca.live/b/hotdeal"
 RULI_WEB_LINK = "https://bbs.ruliweb.com/market/board/1020?view=default"
