@@ -487,6 +487,7 @@ class EOMI_SAE(PAGES):
     def get_comment_count(self, item):
         try:
             comment_count = item.find(class_="ion-ios-chatbubble").text
+            print(comment_count)
             comment_count = int(comment_count)
         
         except Exception as e:
@@ -507,7 +508,7 @@ class EOMI_SAE(PAGES):
         
         for item in soup.find_all(class_= "card_el n_ntc clear"):
             try:
-                item_link_element = item.find(class_="na-subject")
+                item_link_element = item.find(class_="pjax hx")
                 item_link = item_link_element.attrs["href"]
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(item)
