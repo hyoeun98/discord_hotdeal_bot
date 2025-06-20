@@ -16,7 +16,15 @@
     ![example_message](https://github.com/user-attachments/assets/66c59425-f8ad-494f-a691-344d876a2ba0)
   ![example_thread_message](https://github.com/user-attachments/assets/915f94d7-c228-40c5-ad00-ab927d971c03)
 
-
+| 제공 사이트 | 링크|
+|---|---|
+| 아카라이브 | https://arca.live/b/hotdeal |
+| 루리웹 | https://bbs.ruliweb.com/market/board/1020?view=default |
+| 뽐뿌 | https://www.ppomppu.co.kr/zboard/zboard.php?id=ppomppu |
+| 퀘이사존 | https://quasarzone.com/bbs/qb_saleinfo |
+| 에펨코리아 | https://www.fmkorea.com/hotdeal |
+| 쿨엔조이 | https://coolenjoy.net/bbs/jirum |
+| 어미새 | https://eomisae.co.kr/fs |
 
 - 기술 스택 및 개발 상세 내용
     - 게시글 목록 수집 및 각 상품 정보 크롤링 - selenium 사용
