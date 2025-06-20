@@ -10,7 +10,8 @@ RUN /usr/bin/bash /tmp/install-browser.sh
 FROM public.ecr.aws/lambda/python:3.9 AS base
 
 COPY chrome-deps.txt /tmp/
-RUN yum install -y $(cat /tmp/chrome-deps.txt)
+RUN yum install -y $(cat /tmp/chrome-deps.txt) && \
+    yum install -y libyaml-devel
 
 # Install Python dependencies for function
 COPY requirements.txt /tmp/
@@ -22,6 +23,7 @@ COPY --from=stage /opt/chromedriver /opt/chromedriver
 
 # copy main.py
 COPY main.py /var/task/
+COPY selectors.yml /var/task/selectors.yml
 
 WORKDIR /var/task
 
