@@ -505,8 +505,8 @@ class EOMI_SAE(PAGES):
     def get_item_links(self):
         response = session.get(self.site_name)
         soup = bs(response.content, "html.parser")
-        
-        for item in soup.find_all(class_= "card_el n_ntc clear"):
+        print(soup)
+        for item in soup.find_all(class_="card_el n_ntc clear"):
             try:
                 item_link_element = item.find(class_="pjax hx")
                 item_link = item_link_element.attrs["href"]
