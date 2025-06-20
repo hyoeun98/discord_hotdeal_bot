@@ -1,0 +1,37 @@
+QUASAR_ZONE:
+  get_item_links:
+    find_item_css_selector: "#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div"
+    find_item_link_css_selector: "div.market-info-list-cont > p > a"
+  get_comment_count:
+    comment_count_class_name: "board-list-comment"
+ARCA_LIVE:
+  get_item_links:
+    find_item_xpath_selector: "/html/body/div[2]/div[3]/article/div/div[6]/div[2]/div[{i}]"
+    find_item_link_xpath_selector: "./div/div/span[2]/a"
+  get_comment_count:
+    find_comment_count_xpath_selector: "./div/div/span[2]/a/span[2]/span"
+FM_KOREA:
+  get_item_links:
+    find_item_css_selector: "#bd_1196365581_0 > div > div.fm_best_widget._bd_pc > ul > li:nth-child({i})"
+    find_item_link_css_selector: "div > h3 > a"
+  get_comment_count:
+    comment_count_class_name: "comment_count"
+EOMI_SAE:
+  get_item_links:
+    find_item_css_selector: "#L_ > div._bd.cf.clear > div.card_wrap > div > div:nth-child({i})"
+    find_item_link_class_name: "pjax"
+  get_comment_count:
+    comment_count_css_selector: "div > div.card_content > div.infos > span:nth-child(2) > i"
+PPOM_PPU:
+  get_item_links:
+    item_list_classes: ["baseList", "bbs_new1"]
+    item_link_class: "baseList-thumb"
+    item_link_href_prefix: "https://www.ppomppu.co.kr/zboard/"
+  get_comment_count:
+    comment_count_class: "baseList-c"
+COOL_ENJOY:
+  get_item_links:
+    item_list_class: "na-item"
+    item_link_class: "na-subject"
+  get_comment_count:
+    comment_count_class: "win_imgbox me-a"
