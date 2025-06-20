@@ -28,3 +28,4 @@ python-dotenv
 bs4
 selenium-stealth
 boto3
+PyYAML

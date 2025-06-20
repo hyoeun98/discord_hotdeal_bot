@@ -14,6 +14,7 @@ from selenium.webdriver.chrome.service import Service
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from datetime import datetime
+import yaml
 
 QUEUE_URL = os.environ["QUEUE_URL"]
 REGION = os.environ.get("REGION", "ap-northeast-2")
@@ -26,6 +27,13 @@ QUASAR_ZONE_LINK = "https://quasarzone.com/bbs/qb_saleinfo"
 FM_KOREA_LINK = "https://www.fmkorea.com/hotdeal"
 COOL_ENJOY_LINK = "https://coolenjoy.net/bbs/jirum"
 EOMI_SAE_LINK = "https://eomisae.co.kr/fs"
+
+def load_crawler_selectors():
+    # Path updated to "selectors.yml" to be relative to main.py's execution directory (/var/task in Docker)
+    with open("selectors.yml", "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+CRAWLER_SELECTORS = load_crawler_selectors()
 
 session = requests.Session()
 retry = Retry(connect=2, backoff_factor=0.5)
@@ -86,25 +94,30 @@ class PAGES:
         
 class QUASAR_ZONE(PAGES):
     def __init__(self):
+        super().__init__()
         self.site_name = QUASAR_ZONE_LINK
+        self.selectors = CRAWLER_SELECTORS['QUASAR_ZONE']['crawling_selectors']
 
     def crawling(self, driver, item_link_list):
         for item_link in item_link_list:
             driver.get(item_link)
             try:
                 created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
-                item_name = driver.find_element(By.CSS_SELECTOR, "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dt > div:nth-child(1) > h1").text.split()[2:]
-                item_name = " ".join(item_name)
-                created_at = driver.find_element(By.CSS_SELECTOR, "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dt > div.util-area > p > span").text
-                content = driver.find_element(By.CSS_SELECTOR, "#new_contents").text
-                comment = list(map(lambda x: x.text, driver.find_elements(By.CSS_SELECTOR, "#content > div.sub-content-wrap > div.left-con-wrap > div.reply-wrap > div.reply-area > div.reply-list")))
-                category = driver.find_element(By.XPATH, "/html/body/div[3]/div/div/div/div[1]/div[1]/div[4]/div/dl/dt/div[3]/div/div[1]").text
-                shopping_mall_link = driver.find_element(By.XPATH, "/html/body/div[3]/div/div/div/div[1]/div[1]/div[4]/div/dl/dd/table/tbody/tr[1]/td/a").text
-                shopping_mall = driver.find_element(By.XPATH, "/html/body/div[3]/div/div/div/div[1]/div[1]/div[4]/div/dl/dd/table/tbody/tr[2]/td").text
-                price = driver.find_element(By.XPATH, "/html/body/div[3]/div/div/div/div[1]/div[1]/div[4]/div/dl/dd/table/tbody/tr[3]/td").text
-                delivery = driver.find_element(By.XPATH, "/html/body/div[3]/div/div/div/div[1]/div[1]/div[4]/div/dl/dd/table/tbody/tr[4]/td").text
+                item_name_text = driver.find_element(By.CSS_SELECTOR, self.selectors['item_name_css']).text
+                # Assuming item_name needs specific processing like .split()[2:]
+                item_name = " ".join(item_name_text.split()[2:]) if item_name_text else "err"
+                created_at = driver.find_element(By.CSS_SELECTOR, self.selectors['created_at_css']).text
+                content = driver.find_element(By.CSS_SELECTOR, self.selectors['content_css']).text
+                comment_elements = driver.find_elements(By.CSS_SELECTOR, self.selectors['comment_list_css'])
+                comment = list(map(lambda x: x.text, comment_elements))
+                category = driver.find_element(By.XPATH, self.selectors['category_xpath']).text
+                shopping_mall_link = driver.find_element(By.XPATH, self.selectors['shopping_mall_link_xpath']).text
+                shopping_mall = driver.find_element(By.XPATH, self.selectors['shopping_mall_xpath']).text
+                price = driver.find_element(By.XPATH, self.selectors['price_xpath']).text
+                delivery = driver.find_element(By.XPATH, self.selectors['delivery_xpath']).text
             except Exception as e:
                 print(f"fail get item link {item_link} {str(e)}")
+                # Consider adding capture_and_send_screenshot(driver, self.__class__.__name__) here if needed
                 
             finally:
                 result = {
@@ -124,24 +137,29 @@ class QUASAR_ZONE(PAGES):
 
 class ARCA_LIVE(PAGES):
     def __init__(self):
+        super().__init__()
         self.site_name = ARCA_LIVE_LINK
+        self.selectors = CRAWLER_SELECTORS['ARCA_LIVE']['crawling_selectors']
         
     def crawling(self, driver, item_link_list):
         for item_link in item_link_list:
             driver.get(item_link)
             try:
                 created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
-                table = driver.find_element(By.TAG_NAME, "table")
-                rows = table.find_elements(By.TAG_NAME, "tr")
+                table = driver.find_element(By.TAG_NAME, self.selectors['table_tag_name'])
+                rows = table.find_elements(By.TAG_NAME, self.selectors['row_tag_name'])
                 details = [row.text for row in rows]
+                # This mapping logic remains highly dependent on the structure and order of text in rows
                 shopping_mall_link, shopping_mall, item_name, price, delivery = list(map(lambda x: "".join(x.split()[1:]), details))
-                content = driver.find_element(By.CSS_SELECTOR, "body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-wrapper > div.article-body > div.fr-view.article-content").text
-                comment_box = driver.find_element(By.CSS_SELECTOR, "#comment > div.list-area")
-                comment = list(map(lambda x: x.text, comment_box.find_elements(By.CLASS_NAME, "text")))
-                created_at = driver.find_element(By.CSS_SELECTOR, "body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-wrapper > div.article-head > div.info-row > div.article-info.article-info-section > span:nth-child(12) > span.body > time").text
-                category = driver.find_element(By.XPATH, "/html/body/div[2]/div[3]/article/div/div[2]/div[2]/div[1]/div[2]/span").text
+                content = driver.find_element(By.CSS_SELECTOR, self.selectors['content_css']).text
+                comment_box = driver.find_element(By.CSS_SELECTOR, self.selectors['comment_box_css'])
+                comment_elements = comment_box.find_elements(By.CLASS_NAME, self.selectors['comment_text_class_name'])
+                comment = list(map(lambda x: x.text, comment_elements))
+                created_at = driver.find_element(By.CSS_SELECTOR, self.selectors['created_at_css']).text
+                category = driver.find_element(By.XPATH, self.selectors['category_xpath']).text
             except Exception as e:
                 print(f"fail get item link {item_link} {str(e)}")
+                # Consider adding capture_and_send_screenshot(driver, self.__class__.__name__) here if needed
                 
             finally:
                 result = {
@@ -160,23 +178,30 @@ class ARCA_LIVE(PAGES):
 
 class RULI_WEB(PAGES):
     def __init__(self):
+        super().__init__()
         self.site_name = RULI_WEB_LINK
+        self.selectors = CRAWLER_SELECTORS['RULI_WEB']['crawling_selectors']
 
     def crawling(self, driver, item_link_list):
         for item_link in item_link_list:
             driver.get(item_link)
             try:
                 created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
-                item_name = driver.find_element(By.CSS_SELECTOR, "#board_read > div > div.board_main > div.board_main_top > div.user_view > div:nth-child(1) > div > div > h4 > span > span.subject_inner_text").text
-                shopping_mall = re.findall(r"\[.+\]", item_name)[0]
-                created_at = driver.find_element(By.CSS_SELECTOR, "#board_read > div > div.board_main > div.board_main_top > div.user_view > div.row.user_view_target > div.col.user_info_wrapper > div > p:nth-child(6) > span").text
-                content = driver.find_element(By.TAG_NAME, "article").text
-                comment = list(map(lambda x: x.text, driver.find_elements(By.CLASS_NAME, "comment")))
-                shopping_mall_link = driver.find_element(By.CSS_SELECTOR, "#board_read > div > div.board_main > div.board_main_view > div.row.relative > div > div.source_url.box_line_with_shadow > a").text
-                category = driver.find_element(By.XPATH, "/html/body/div[4]/div[2]/div[2]/div/div/div[2]/div/div[2]/div[1]/div[1]/div[1]/div/div/h4/span/span[1]").text
+                item_name = driver.find_element(By.CSS_SELECTOR, self.selectors['item_name_css']).text
+                # shopping_mall extraction logic remains dependent on item_name format
+                shopping_mall_match = re.findall(r"\[.+\]", item_name)
+                if shopping_mall_match:
+                    shopping_mall = shopping_mall_match[0]
+                created_at = driver.find_element(By.CSS_SELECTOR, self.selectors['created_at_css']).text
+                content = driver.find_element(By.TAG_NAME, self.selectors['content_tag_name']).text
+                comment_elements = driver.find_elements(By.CLASS_NAME, self.selectors['comment_class_name'])
+                comment = list(map(lambda x: x.text, comment_elements))
+                shopping_mall_link = driver.find_element(By.CSS_SELECTOR, self.selectors['shopping_mall_link_css']).text
+                category = driver.find_element(By.XPATH, self.selectors['category_xpath']).text
 
             except Exception as e:
                 print(f"fail get item link {item_link} {str(e)}")
+                # Consider adding capture_and_send_screenshot(driver, self.__class__.__name__) here if needed
                 
             finally:
                 result = {
@@ -195,21 +220,38 @@ class RULI_WEB(PAGES):
                 
 class FM_KOREA(PAGES):
     def __init__(self):
+        super().__init__()
         self.site_name = FM_KOREA_LINK
+        self.selectors = CRAWLER_SELECTORS['FM_KOREA']['crawling_selectors']
     
     def crawling(self, driver, item_link_list):
         for item_link in item_link_list:
             driver.get(item_link)
             try:
                 created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
-                details = driver.find_elements(By.CLASS_NAME, "xe_content")
-                shopping_mall_link, shopping_mall, item_name, price, delivery, content, *comment = details
-                shopping_mall_link, shopping_mall, item_name, price, delivery, content = map(lambda x: x.text, (shopping_mall_link, shopping_mall, item_name, price, delivery, content))
-                comment = list(map(lambda x: x.text, comment))
-                created_at = driver.find_element(By.CSS_SELECTOR, "#bd_capture > div.rd_hd.clear > div.board.clear > div.top_area.ngeb > span").text
-                category = driver.find_element(By.XPATH, "/html/body/div[1]/div/div/div/div[4]/div/div[2]/div[2]/div/div[1]/span/a").text
+                # The logic for unpacking 'details' is highly dependent on the number and order of elements with class "xe_content"
+                details_elements = driver.find_elements(By.CLASS_NAME, self.selectors['details_class_name'])
+                # Ensure robust unpacking if the number of elements can vary
+                if len(details_elements) >= 6:
+                    shopping_mall_link_el, shopping_mall_el, item_name_el, price_el, delivery_el, content_el = details_elements[:6]
+                    comment_elements = details_elements[6:]
+
+                    shopping_mall_link = shopping_mall_link_el.text
+                    shopping_mall = shopping_mall_el.text
+                    item_name = item_name_el.text
+                    price = price_el.text
+                    delivery = delivery_el.text
+                    content = content_el.text
+                    comment = list(map(lambda x: x.text, comment_elements))
+                else:
+                    # Handle cases where not enough elements are found
+                    print(f"Warning: Not enough 'xe_content' elements found for {item_link}")
+
+                created_at = driver.find_element(By.CSS_SELECTOR, self.selectors['created_at_css']).text
+                category = driver.find_element(By.XPATH, self.selectors['category_xpath']).text
             except Exception as e:
                 print(f"fail get item link {item_link} {str(e)}")
+                # Consider adding capture_and_send_screenshot(driver, self.__class__.__name__) here if needed
                 
             finally:
                 result = {
@@ -229,7 +271,9 @@ class FM_KOREA(PAGES):
                 
 class PPOM_PPU(PAGES):
     def __init__(self):
+        super().__init__()
         self.site_name = PPOM_PPU_LINK
+        self.selectors = CRAWLER_SELECTORS['PPOM_PPU']['crawling_selectors']
                 
     def crawling(self, driver, item_link_list):
         for item_link in item_link_list:
@@ -237,18 +281,21 @@ class PPOM_PPU(PAGES):
     
             try:
                 created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
-                item_name = driver.find_element(By.CSS_SELECTOR, "#topTitle > h1").text
-                content = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/table[3]/tbody/tr[1]/td/table/tbody/tr/td").text
-                comment = driver.find_element(By.ID, "quote").text
-                created_at = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/div[3]/div/ul/li[2]").text.lstrip("등록일 ")
-                shopping_mall_link = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/div[3]/div/ul/li[4]/a").text
-                shopping_mall = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/div/div[3]/h1/span").text
+                item_name = driver.find_element(By.CSS_SELECTOR, self.selectors['item_name_css']).text
+                content = driver.find_element(By.XPATH, self.selectors['content_xpath']).text
+                comment = driver.find_element(By.ID, self.selectors['comment_id']).text
+                created_at = driver.find_element(By.XPATH, self.selectors['created_at_xpath']).text.lstrip("등록일 ")
+                shopping_mall_link = driver.find_element(By.XPATH, self.selectors['shopping_mall_link_xpath']).text
+                shopping_mall = driver.find_element(By.XPATH, self.selectors['shopping_mall_xpath']).text
                 
             except Exception as e:
                 # major한 shopping_mall이 아니면 path가 달라짐
                 if item_name != "err" and shopping_mall == "err":
-                     shopping_mall = re.match("\[.+\]", item_name)[0]
+                     shopping_mall_match = re.match(r"\[.+\]", item_name) # Use re.match for safety
+                     if shopping_mall_match:
+                         shopping_mall = shopping_mall_match[0]
                 print(f"fail get item link {item_link} {str(e)}")
+                # Consider adding capture_and_send_screenshot(driver, self.__class__.__name__) here if needed
                 
             finally:
                 result = {
@@ -267,7 +314,9 @@ class PPOM_PPU(PAGES):
 
 class COOL_ENJOY(PAGES):
     def __init__(self):
+        super().__init__()
         self.site_name = COOL_ENJOY_LINK
+        self.selectors = CRAWLER_SELECTORS['COOL_ENJOY']['crawling_selectors']
                 
     def crawling(self, driver, item_link_list):
         for item_link in item_link_list:
@@ -276,19 +325,27 @@ class COOL_ENJOY(PAGES):
     
             try:
                 created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
-                title_text = driver.find_element(By.XPATH, '//*[@id="bo_v_title"]').text
+                title_text = driver.find_element(By.XPATH, self.selectors['title_text_xpath']).text
+                # Logic for splitting title_text remains
                 split_idx = title_text.find("|")
-                category = title_text[:split_idx-3].strip()
-                item_name = title_text[split_idx+1:].strip()
-                content = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[2]/div[1]/div[2]/article/section[2]/div/div[2]").text
-                comment = driver.find_element(By.ID, "bo_vc").text
-                created_at = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[2]/div[1]/div[2]/article/section[1]/div[1]/ul/li[3]/time").text
-                shopping_mall_link = driver.find_element(By.XPATH, '//*[@id="bo_v_atc"]/ul/li/div/div/div[2]/a').text
+                if split_idx != -1 and split_idx > 3 : # Ensure '|' is found and there's space for "-3"
+                    category = title_text[:split_idx-3].strip()
+                    item_name = title_text[split_idx+1:].strip()
+                else: # Fallback if pattern doesn't match
+                    category = "err"
+                    item_name = title_text # or some other default based on expected format
+
+                content = driver.find_element(By.XPATH, self.selectors['content_xpath']).text
+                comment = driver.find_element(By.ID, self.selectors['comment_id']).text
+                created_at = driver.find_element(By.XPATH, self.selectors['created_at_xpath']).text
+                shopping_mall_link = driver.find_element(By.XPATH, self.selectors['shopping_mall_link_xpath']).text
+                # shopping_mall extraction logic remains dependent on item_name format
                 shopping_mall_candidate = re.search(r'\[([^]]+)\]', item_name)
                 if shopping_mall_candidate:
                     shopping_mall = shopping_mall_candidate.group(1)
             except Exception as e:
                 print(f"fail get item link {item_link} {str(e)}")
+                # Consider adding capture_and_send_screenshot(driver, self.__class__.__name__) here if needed
                 
             finally:
                 result = {
@@ -307,7 +364,9 @@ class COOL_ENJOY(PAGES):
                            
 class EOMI_SAE(PAGES):
     def __init__(self):
+        super().__init__()
         self.site_name = EOMI_SAE_LINK
+        self.selectors = CRAWLER_SELECTORS['EOMI_SAE']['crawling_selectors']
                 
     def crawling(self, driver, item_link_list):
         for item_link in item_link_list:
@@ -316,15 +375,16 @@ class EOMI_SAE(PAGES):
     
             try:
                 created_at, shopping_mall_link, shopping_mall, price, item_name, delivery, content, comment, category = "err", "err", "err", "err", "err", "err", "err", "err", "err"
-                item_name = driver.find_element(By.XPATH, '//*[@id="D_"]/div[1]/div[1]/div[1]/h2/a').text
-                category = driver.find_element(By.XPATH, '//*[@id="D_"]/div[1]/div[1]/div[1]/h2/span').text
-                content = driver.find_element(By.XPATH, '//*[@id="D_"]/div[1]/div[2]/article/div[3]').text
-                comment = driver.find_element(By.CLASS_NAME, "_comment").text
-                created_at = driver.find_element(By.XPATH, '//*[@id="D_"]/div[1]/div[1]/div[2]/span[5]').text
-                shopping_mall_link = driver.find_element(By.XPATH, '//*[@id="D_"]/div[1]/div[2]/table/tbody/tr/td/a').get_attribute("href")
+                item_name = driver.find_element(By.XPATH, self.selectors['item_name_xpath']).text
+                category = driver.find_element(By.XPATH, self.selectors['category_xpath']).text
+                content = driver.find_element(By.XPATH, self.selectors['content_xpath']).text
+                comment = driver.find_element(By.CLASS_NAME, self.selectors['comment_class_name']).text
+                created_at = driver.find_element(By.XPATH, self.selectors['created_at_xpath']).text
+                shopping_mall_link = driver.find_element(By.XPATH, self.selectors['shopping_mall_link_xpath']).get_attribute("href")
                 
             except Exception as e:
                 print(f"fail get item link {item_link} {str(e)}")
+                # Consider adding capture_and_send_screenshot(driver, self.__class__.__name__) here if needed
                 
             finally:
                 result = {
