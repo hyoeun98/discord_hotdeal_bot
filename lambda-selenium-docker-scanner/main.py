@@ -587,6 +587,7 @@ def set_driver():
         fix_hairline=True,
     )
     driver.implicitly_wait(10)
+    driver.set_page_load_timeout(60)
     return driver
 
 @contextmanager
