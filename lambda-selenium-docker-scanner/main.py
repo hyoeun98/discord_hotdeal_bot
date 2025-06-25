@@ -18,6 +18,7 @@ from stealthenium import stealth
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 import yaml
+import signal
 
 QUEUE_URL = os.environ["QUEUE_URL"]
 REGION = os.environ.get("REGION", "ap-northeast-2")
@@ -37,6 +38,12 @@ QUASAR_ZONE_LINK = "https://quasarzone.com/bbs/qb_saleinfo"
 FM_KOREA_LINK = "https://www.fmkorea.com/hotdeal"
 COOL_ENJOY_LINK = "https://coolenjoy.net/bbs/jirum"
 EOMI_SAE_LINK = "https://eomisae.co.kr/fs"
+
+
+def handler(signum, frame):
+    raise TimeoutError("시간 초과")
+
+signal.signal(signal.SIGALRM, handler)
 
 def load_selectors():
     # It's good practice to specify the full path if the script might be run from different directories
@@ -587,7 +594,7 @@ def set_driver():
         fix_hairline=True,
     )
     driver.implicitly_wait(10)
-    driver.set_page_load_timeout(60)
+    driver.set_page_load_timeout(10)
     return driver
 
 @contextmanager
@@ -614,12 +621,16 @@ def handler(event=None, context=None):
     # ruli_web.get_item_links(driver)
     # print(f" ruliweb {time.time() - current}")
     
-    quasar_zone.scanning()
-    ppom_ppu.scanning()
-    fm_korea.scanning()    
-    arca_live.scanning()
-    cool_enjoy.scanning()
-    eomi_sae.scanning()
+    sites = [quasar_zone, ppom_ppu, fm_korea, arca_live, cool_enjoy, eomi_sae]
+    for site in sites:
+        try:
+            signal.alarm(60)
+            result = site.scanning()
+        except TimeoutError:
+            print(f"{site} timeout")
+        finally:
+            signal.alarm(0)
+            
     driver.quit()
     ################################
     # 접속 테스트
