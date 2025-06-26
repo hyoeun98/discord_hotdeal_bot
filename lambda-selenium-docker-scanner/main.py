@@ -40,10 +40,10 @@ COOL_ENJOY_LINK = "https://coolenjoy.net/bbs/jirum"
 EOMI_SAE_LINK = "https://eomisae.co.kr/fs"
 
 
-def handler(signum, frame):
+def timeout_handler(signum, frame):
     raise TimeoutError("시간 초과")
 
-signal.signal(signal.SIGALRM, handler)
+signal.signal(signal.SIGALRM, timeout_handler)
 
 def load_selectors():
     # It's good practice to specify the full path if the script might be run from different directories
@@ -626,10 +626,11 @@ def handler(event=None, context=None):
         try:
             signal.alarm(60)
             result = site.scanning()
-        except TimeoutError:
-            print(f"{site} timeout")
+        except Exception as e:
+            print(f"{site} timeout {e}")
         finally:
             signal.alarm(0)
+            continue
             
     driver.quit()
     ################################
