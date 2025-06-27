@@ -96,7 +96,7 @@ sns = boto3.client('sns', region_name=REGION)
 sqs = boto3.client('sqs', region_name=REGION)
 
 def capture_and_send_screenshot(driver, file_name):
-    """화면 캡처 후 Discord로 직접 전송"""
+    """화면 캡처 후 Discord로 직접 전송 및 PostgreSQL에 저장"""
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     local_file = f"/tmp/{file_name}_{timestamp}.png"
     
@@ -120,6 +120,31 @@ def capture_and_send_screenshot(driver, file_name):
         files = {"file": (file_path, f, "text/html")}
         payload = {"content": f"에러 발생 페이지 소스"}
         response = requests.post(DISCORD_WEBHOOK, data=payload, files=files)
+    
+    # PostgreSQL에 페이지 소스 저장
+    conn = None
+    try:
+        conn = psycopg2.connect(**db_config)
+        cursor = conn.cursor()
+        
+        insert_query = """
+            INSERT INTO scanner_error_logs (site_name, page_source, created_at, error_type)
+            VALUES (%s, %s, %s, %s)
+        """
+        cursor.execute(insert_query, (
+            file_name,
+            page_source,
+            timestamp,
+            'scraping_error'
+        ))
+        conn.commit()
+        print(f"Error log saved to PostgreSQL: {file_name}")
+        
+    except Exception as e:
+        print(f"Failed to save error log to PostgreSQL: {e}")
+    finally:
+        if conn:
+            conn.close()
     
     # 전송 결과 확인
     print(f"response code : {response.status_code}")
