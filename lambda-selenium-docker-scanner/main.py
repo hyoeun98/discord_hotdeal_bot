@@ -18,7 +18,7 @@ from stealthenium import stealth
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 import yaml
-import signal
+import threading
 
 QUEUE_URL = os.environ["QUEUE_URL"]
 REGION = os.environ.get("REGION", "ap-northeast-2")
@@ -40,10 +40,33 @@ COOL_ENJOY_LINK = "https://coolenjoy.net/bbs/jirum"
 EOMI_SAE_LINK = "https://eomisae.co.kr/fs"
 
 
-def timeout_handler(signum, frame):
-    raise TimeoutError("시간 초과")
+class TimeoutException(Exception):
+    pass
 
-signal.signal(signal.SIGALRM, timeout_handler)
+def run_with_timeout(func, timeout_seconds):
+    """Run a function with a timeout using threading"""
+    result = [None]
+    exception = [None]
+    
+    def target():
+        try:
+            result[0] = func()
+        except Exception as e:
+            exception[0] = e
+    
+    thread = threading.Thread(target=target)
+    thread.daemon = True
+    thread.start()
+    thread.join(timeout_seconds)
+    
+    if thread.is_alive():
+        # Thread is still running, timeout occurred
+        raise TimeoutException("시간 초과")
+    
+    if exception[0]:
+        raise exception[0]
+    
+    return result[0]
 
 def load_selectors():
     # It's good practice to specify the full path if the script might be run from different directories
@@ -624,12 +647,12 @@ def handler(event=None, context=None):
     sites = [quasar_zone, ppom_ppu, fm_korea, arca_live, cool_enjoy, eomi_sae]
     for site in sites:
         try:
-            signal.alarm(60)
-            result = site.scanning()
-        except Exception as e:
+            run_with_timeout(site.scanning, 60)
+        except TimeoutException as e:
             print(f"{site} timeout {e}")
+        except Exception as e:
+            print(f"{site} error {e}")
         finally:
-            signal.alarm(0)
             continue
             
     driver.quit()
