@@ -733,7 +733,7 @@ def handler(event=None, context=None):
     sites = [quasar_zone, ppom_ppu, fm_korea, arca_live, cool_enjoy, eomi_sae]
     for site in sites:
         try:
-            run_with_timeout(site.scanning, 60)
+            run_with_timeout(site.scanning, 20)
         except TimeoutException as e:
             print(f"{site} timeout {e}")
         except Exception as e:
