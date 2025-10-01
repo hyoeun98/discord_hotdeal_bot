@@ -477,6 +477,8 @@ class COOL_ENJOY(PAGES):
                     item_name = (
                         title_text  # or some other default based on expected format
                     )
+                    
+                item_name = re.sub(r"^\[[^]]*\]\s*", "", item_name, count=1)
 
                 content = driver.find_element(
                     By.XPATH, self.selectors["content_xpath"]
