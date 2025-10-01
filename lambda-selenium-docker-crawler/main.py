@@ -396,6 +396,7 @@ class PPOM_PPU(PAGES):
                     comment,
                     category,
                 ) = "err", "err", "err", "err", "err", "err", "err", "err", "err"
+                
                 item_name = driver.find_element(
                     By.CSS_SELECTOR, self.selectors["item_name_css"]
                 ).text
@@ -412,7 +413,9 @@ class PPOM_PPU(PAGES):
                 shopping_mall = driver.find_element(
                     By.XPATH, self.selectors["shopping_mall_xpath"]
                 ).text
-
+                
+                item_name = re.sub(r"^\[[^]]*\]\s*", "", item_name, count=1)
+                
             except Exception as e:
                 # major한 shopping_mall이 아니면 path가 달라짐
                 if item_name != "err" and shopping_mall == "err":
