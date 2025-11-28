@@ -1,0 +1,61 @@
+QUASAR_ZONE:
+  crawling_selectors:
+    item_name_css: "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dt > div:nth-child(1) > h1"
+    created_at_css: "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dt > div.util-area > p > span"
+    content_css: "textarea"
+    comment_list_css: "#content > div.sub-content-wrap > div.left-con-wrap > div.reply-wrap > div.reply-area > div.reply-list"
+    category_xpath: "body > div:nth-of-type(3) > div > div > div > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(4) > div > dl > dt > div:nth-of-type(3) > div > div:nth-of-type(1)"
+    table_css: "table"
+    shopping_mall_link_selector: "table.market-info-view-table tbody tr:nth-of-type(1)"
+    shopping_mall_selector: "table.market-info-view-table tbody tr:nth-of-type(2)"
+    price_selector: "table.market-info-view-table tbody tr:nth-of-type(3)"
+    delivery_selector: "table.market-info-view-table tbody tr:nth-of-type(4)"
+
+ARCA_LIVE:
+  crawling_selectors:
+    content_selector: ".fr-view.article-content"
+    comment_list_selector: ".list-area > .comment-wrapper pre"
+    created_at_selector: "body > div.root-container > div.content-wrapper.clearfix > article > div > div.article-wrapper > div.article-head > div.info-row > div.article-info.article-info-section > span:nth-child(12) > span.body > time"
+    category_selector: ".badge.badge-success.category-badge"
+
+RULI_WEB:
+  crawling_selectors:
+    item_name_selector: "#board_read > div > div.board_main > div.board_main_top > div.user_view > div:nth-child(1) > div > div > h4 > span > span.subject_inner_text"
+    created_at_selector: "#board_read > div > div.board_main > div.board_main_top > div.user_view > div.row.user_view_target > div.col.user_info_wrapper > div > p:nth-child(6) > span"
+    content_selector: "article"
+    comment_selector: ".comment_element.normal.parent.blocktarget > .comment > .text_wrapper > .text"
+    shopping_mall_link_selector: "#board_read > div > div.board_main > div.board_main_view > div.row.relative > div > div.source_url.box_line_with_shadow > a"
+    category_selector: ".category_text"
+
+FM_KOREA:
+  crawling_selectors:
+    rows_selector: ".hotdeal_table td"
+    content_selector: "article"
+    comment_selector: ".fdb_itm.clear .xe_content"
+    created_at_selector: ".date.m_no"
+    category_selector: ".tl_srch.clear .category"
+
+PPOM_PPU:
+  crawling_selectors:
+    item_name_css: "#topTitle > h1"
+    content_selector: "td.han"
+    comment_id: "div.mid-text-area"
+    created_at_selector: "#topTitle > div > ul > li:nth-child(2)"
+    shopping_mall_link_selector: "#topTitle > div > ul > li.topTitle-link > a"
+    shopping_mall_selector: "#topTitle > h1 > span.subject_preface.type2"
+COOL_ENJOY:
+  crawling_selectors:
+    title_text_selector: '#bo_v_title'
+    content_selector: ".view-content"
+    comment_selector: ".cmt_contents"
+    created_at_selector: "time.f-xs"
+    shopping_mall_link_selector: '.text-break-all > a'
+
+EOMI_SAE:
+  crawling_selectors:
+    item_name_selector: 'h2 > a'
+    category_selector: 'h2 > span'
+    content_selector: 'article > .xe_content'
+    comment_selector: "._bd.cf.clear > ._comment .xe_content"
+    created_at_selector: ".btm_area.clear > span"
+    shopping_mall_link_selector: '.extra_url'

@@ -1,0 +1,44 @@
+QUASAR_ZONE:
+  get_item_links:
+    # find_item_css_selector: "#frmSearch > div > div.list-board-wrap > div.market-type-list.market-info-type-list.relative > table > tbody > tr:nth-child({i}) > td:nth-child(2) > div"
+    find_board_selector: ".market-type-list.market-info-type-list.relative"
+    find_row_selector: ".subject-link"
+  get_comment_count:
+    comment_count_selector: ".ctn-count"
+ARCA_LIVE:
+  get_item_links:
+    find_board_selector: ".article-list"
+    find_row_selector: ".title.hybrid-title"
+  get_comment_count:
+    comment_count_selector: ".info"
+FM_KOREA:
+  get_item_links:
+    find_board_selector: ".fm_best_widget._bd_pc"
+    find_row_selector: ".hotdeal_var8"
+  get_comment_count:
+    comment_count_selector: ".comment_count"
+EOMI_SAE:
+  get_item_links:
+    find_board_selector: ".bd_card.cf"
+    find_row_selector: ".card_content"
+  get_comment_count:
+    comment_count_selector: "div.infos > span:nth-child(2)"
+PPOM_PPU:
+  get_item_links:
+    find_board_selector: ".info_bg.bbs_new1.bid_ppomppu"
+    find_row_selector: ".baseList.bbs_new1:not(.hotpop_bg_color) .baseList-cover"
+  get_comment_count:
+    comment_count_selector: ".baseList.bbs_new1:not(.hotpop_bg_color) .baseList-c"
+COOL_ENJOY:
+  get_item_links:
+    find_board_selector: "[class='na-table d-md-table w-100']"
+    find_row_selector: ".d-md-table-row.px-3.py-2.p-md-0.text-md-center.text-muted.border-bottom:not(.bg-light) .na-item"
+  get_comment_count:
+    comment_count_selector: ".win_imgbox.me-a"
+RULI_WEB:
+  get_item_links:
+    find_board_selector: "#board_list > div > div.board_main.theme_default.theme_white"
+    find_row_selector: "[class='table_body blocktarget'] .subject"
+  get_comment_count:
+    comment_count_selector: ".num_reply"
+
