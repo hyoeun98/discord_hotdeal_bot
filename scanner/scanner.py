@@ -22,21 +22,6 @@ import tempfile
 from playwright.sync_api import sync_playwright
 
 
-# --- 로깅 설정 ---
-log_dir = os.path.join(os.path.dirname(__file__), 'logs')
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "scanner.log")
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(log_file, encoding="utf-8"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
-
 load_dotenv()
 
 QUEUE_URL = os.environ["QUEUE_URL"]
@@ -85,8 +70,7 @@ redis_client = redis.Redis(
 )
 
 def load_selectors():
-    selector_path = os.path.join(os.path.dirname(__file__), 'selectors.yaml')
-    with open(selector_path, "r", encoding="utf-8") as f:
+    with open("/home/hyoeun/hotdeal_bot/scanner/selectors.yaml", "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
     
 def normalize_comment_count(comment):
@@ -119,7 +103,7 @@ class PAGES(ABC):
         new_item_link = self.get_new_item_link()
         site_name = self.__class__.__name__
         
-        logger.info(f"[{site_name}] new item links: {len(new_item_link)}개")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{site_name}] new item links: {len(new_item_link)}개", file=sys.stderr)
 
         
         if new_item_link:
@@ -134,9 +118,9 @@ class PAGES(ABC):
             # Redis Channel: hotdeal:{site_name}
             channel = f"hotdeal:{site_name}"
             redis_client.publish(channel, json.dumps(message, ensure_ascii=False))
-            logger.info(f"[{site_name}] Published {len(new_item_link)} items to Redis channel: {channel}")
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{site_name}] Published {len(new_item_link)} items to Redis channel: {channel}", file=sys.stderr)
         else:
-            logger.info(f"[{site_name}] No new item links found")
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{site_name}] No new item links found", file=sys.stderr)
 
     def get_new_trend_item_link(self):
         db_trend_item_links = self.db_get_trend_item_links()
@@ -150,7 +134,7 @@ class PAGES(ABC):
         new_trend_item_link = self.get_new_trend_item_link()
         site_name = self.__class__.__name__
         
-        logger.info(f"[{site_name}] new trend links: {len(new_trend_item_link)}개")
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{site_name}] new trend links: {len(new_trend_item_link)}개", file=sys.stderr)
         
         if new_trend_item_link:
             message_body = json.dumps(new_trend_item_link)
@@ -168,9 +152,16 @@ class PAGES(ABC):
                     },
                 },
             )
-            logger.info(f"success pub trend item\n{response}")
+            print("success pub trend item\n", response)
         else:
-            logger.info("not found new trend item links")
+            print("not found new trend item links")
+            
+        #     # Redis Channel: trend:{site_name}
+        #     channel = f"trend:{site_name}"
+        #     redis_client.publish(channel, json.dumps(message, ensure_ascii=False))
+        #     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{site_name}] Published {len(new_trend_item_link)} trends to Redis channel: {channel}", file=sys.stderr)
+        # else:
+        #     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [{site_name}] No new trend links found", file=sys.stderr)
 
     def db_get_item_links(self):
         try:
@@ -189,8 +180,7 @@ class PAGES(ABC):
             return db_item_links
 
         except Exception as e:
-            logger.error(str(e))
-            return []
+            print(str(e))
 
     def db_get_trend_item_links(self):
         try:
@@ -209,8 +199,7 @@ class PAGES(ABC):
             return db_item_links
 
         except Exception as e:
-            logger.error(str(e))
-            return []
+            print(str(e))
 
     @abstractmethod
     def get_item_links(self):
@@ -231,6 +220,7 @@ class PAGES(ABC):
             page = browser.new_page()
             
             page.goto(link, wait_until='networkidle')
+            # page.wait_for_load_state('domcontentloaded')
             
             response = page.content()
             
@@ -239,37 +229,50 @@ class PAGES(ABC):
         return soup
     
     def scanning(self):
+        # with timer(f"{self.__class__.__name__} get item link"):
+            # self.get_item_links()
+            
         self.get_item_links()
 
         try:
             self.pub_item_links()
             self.pub_trend_item_links()
+            ...
         except Exception as e:
-            logger.error(f"fail pub item links {e}")
+            print(f"fail pub item links {e}")
 
 def capture_and_send_screenshot(driver_or_html, site_name, is_selenium=True):
     """
     Selenium 또는 BeautifulSoup HTML 기반 에러 로그 저장 및 Discord 전송
+    
+    Args:
+        driver_or_html: Selenium driver 객체 또는 HTML 문자열
+        site_name: 사이트 이름
+        is_selenium: True면 Selenium driver, False면 HTML 문자열 처리
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
+    # Selenium이면 스크린샷 저장
     if is_selenium:
         local_file = f"/tmp/{site_name}_{timestamp}.png"
         driver_or_html.save_screenshot(local_file)
 
+        # Discord로 전송
         with open(local_file, "rb") as f:
             files = {"file": (local_file, f, "image/png")}
             payload = {"content": "에러 발생 스크린샷"}
             response = requests.post(DISCORD_WEBHOOK, data=payload, files=files)
-        logger.info(f"Selenium screenshot sent: {response.status_code}")
+        print(f"Selenium screenshot sent: {response.status_code}")
     
         page_source = driver_or_html.page_source
     
     else:
+        # BS4 HTML 문자열이면 스크린샷 없음, HTML만 저장
         page_source = driver_or_html
-        logger.info("HTML content from BS4 ready to send.")
+        print("HTML content from BS4 ready to send.")
         response = None
 
+    # HTML 파일 저장 및 Discord 전송
     html_file_path = f"/tmp/{site_name}_{timestamp}.html"
     with open(html_file_path, "w", encoding="utf-8") as f:
         f.write(str(page_source))
@@ -278,8 +281,9 @@ def capture_and_send_screenshot(driver_or_html, site_name, is_selenium=True):
         files = {"file": (html_file_path, f, "text/html")}
         payload = {"content": "에러 발생 페이지 소스"}
         html_response = requests.post(DISCORD_WEBHOOK, data=payload, files=files)
-    logger.info(f"HTML sent to Discord: {html_response.status_code}")
+    print(f"HTML sent to Discord: {html_response.status_code}")
 
+    # PostgreSQL에 저장
     conn = None
     try:
         conn = psycopg2.connect(**db_config)
@@ -290,9 +294,9 @@ def capture_and_send_screenshot(driver_or_html, site_name, is_selenium=True):
         """
         cursor.execute(insert_query, (site_name, page_source, timestamp, "scanning error"))
         conn.commit()
-        logger.info(f"Error log saved to PostgreSQL: {site_name}")
+        print(f"Error log saved to PostgreSQL: {site_name}")
     except Exception as e:
-        logger.error(f"Failed to save error log to PostgreSQL: {e}")
+        print(f"Failed to save error log to PostgreSQL: {e}")
     finally:
         if conn:
             conn.close()
@@ -335,7 +339,7 @@ class QUASAR_ZONE(PAGES):
             rows = board.select(s_config["find_row_selector"])
 
         except Exception as e:
-            logger.error(f"{self.site_link} 접속 실패 {str(e)}")
+            print(f"{self.site_link} 접속 실패 {str(e)}")
             return
         
         for row in rows:
@@ -348,8 +352,10 @@ class QUASAR_ZONE(PAGES):
                 if self.is_trend_item(comment_count=comment_count):
                     self.trend_item_link_list.append(item_link)
                 
+                logging.info(f"{item_link} comment : {comment_count}")
+                
             except Exception as e:
-                logger.error(f"fail get item links {item_link} {e}")
+                print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
 
@@ -391,7 +397,7 @@ class ARCA_LIVE(PAGES):
             rows = board.select(s_config["find_row_selector"])
 
         except Exception as e:
-            logger.error(f"{self.site_link} 접속 실패 {str(e)}")
+            print(f"{self.site_link} 접속 실패 {str(e)}")
             return
         
         for row in rows:
@@ -404,8 +410,10 @@ class ARCA_LIVE(PAGES):
                 if self.is_trend_item(comment_count=comment_count):
                     self.trend_item_link_list.append(item_link)
                 
+                logging.info(f"{item_link} comment : {comment_count}")
+                
             except Exception as e:
-                logger.error(f"fail get item links {item_link} {e}")
+                print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break    
         
@@ -446,9 +454,9 @@ class FM_KOREA(PAGES):
             rows = board.select(s_config["find_row_selector"])
 
         except Exception as e:
-            logger.error(f"{self.site_link} 접속 실패 {str(e)}")
+            print(f"{self.site_link} 접속 실패 {str(e)}")
             if soup:
-                logger.error(soup)
+                print(soup)
             return
         
         for row in rows:
@@ -461,8 +469,10 @@ class FM_KOREA(PAGES):
                 if self.is_trend_item(comment_count=comment_count):
                     self.trend_item_link_list.append(item_link)
                 
+                logging.info(f"{item_link} comment : {comment_count}")
+                
             except Exception as e:
-                logger.error(f"fail get item links {item_link} {e}")
+                print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break    
     
@@ -503,9 +513,10 @@ class PPOM_PPU(PAGES):
             rows = board.select(s_config["find_row_selector"])
 
         except Exception as e:
-            logger.error(f"{self.site_link} 접속 실패 {str(e)}")
+            print(f"{self.site_link} 접속 실패 {str(e)}")
             return
         
+        # 하단 8개는 광고
         for row in rows[:-8]:
             try:
                 item_link = row.select_one("a")["href"]
@@ -518,8 +529,10 @@ class PPOM_PPU(PAGES):
                 if self.is_trend_item(comment_count=comment_count):
                     self.trend_item_link_list.append(item_link)
                 
+                logging.info(f"{item_link} comment : {comment_count}")
+                
             except Exception as e:
-                logger.error(f"fail get item links {item_link} {e}")
+                print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break    
 
@@ -533,6 +546,7 @@ class COOL_ENJOY(PAGES):
     def get_comment_count(self, item):
         s_config = self.selectors['get_comment_count']
         try:
+            # print(item)
             comment_count = item.select_one(s_config['comment_count_selector'])
             comment_count = normalize_comment_count(comment_count.get_text())
         
@@ -556,7 +570,7 @@ class COOL_ENJOY(PAGES):
             rows = board.select(s_config["find_row_selector"])
 
         except Exception as e:
-            logger.error(f"{self.site_link} 접속 실패 {str(e)}")
+            print(f"{self.site_link} 접속 실패 {str(e)}")
             return
         
         for row in rows:
@@ -569,8 +583,10 @@ class COOL_ENJOY(PAGES):
                 if self.is_trend_item(comment_count=comment_count):
                     self.trend_item_link_list.append(item_link)
                 
+                logging.info(f"{item_link} comment : {comment_count}")
+                
             except Exception as e:
-                logger.error(f"fail get item links {item_link} {e}")
+                print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
             
@@ -584,6 +600,7 @@ class EOMI_SAE(PAGES):
     def get_comment_count(self, item):
         s_config = self.selectors['get_comment_count']
         try:
+            # print(item)
             comment_count = item.select_one(s_config['comment_count_selector'])
             comment_count = normalize_comment_count(comment_count.get_text())
         
@@ -606,7 +623,7 @@ class EOMI_SAE(PAGES):
             board = soup.select_one(s_config["find_board_selector"])
             rows = board.select(s_config["find_row_selector"])
         except Exception as e:
-            logger.error(f"{self.site_link} 접속 실패 {str(e)}")
+            print(f"{self.site_link} 접속 실패 {str(e)}")
             return
         
         for row in rows:
@@ -618,8 +635,10 @@ class EOMI_SAE(PAGES):
                 if self.is_trend_item(comment_count=comment_count):
                     self.trend_item_link_list.append(item_link)
                 
+                logging.info(f"{item_link} comment : {comment_count}")
+                
             except Exception as e:
-                logger.error(f"fail get item links {item_link} {e}")
+                print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
             
@@ -655,7 +674,7 @@ class RULI_WEB(PAGES):
             board = soup.select_one(s_config["find_board_selector"])
             rows = board.select(s_config["find_row_selector"])
         except Exception as e:
-            logger.error(f"{self.site_link} 접속 실패 {str(e)}")
+            print(f"{self.site_link} 접속 실패 {str(e)}")
             return
         
         for row in rows:
@@ -667,13 +686,16 @@ class RULI_WEB(PAGES):
                 if self.is_trend_item(comment_count=comment_count):
                     self.trend_item_link_list.append(item_link)
                 
+                logging.info(f"{item_link} comment : {comment_count}")
+                
             except Exception as e:
-                logger.error(f"fail get item links {item_link} {e}")
+                print(f"fail get item links {item_link} {e}")
                 capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
                 break
             
 def set_driver():
     chrome_options = webdriver.ChromeOptions()
+    # chrome_options.binary_location = "/usr/bin/chrome"
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
     chrome_options.add_argument("--headless")
@@ -686,11 +708,29 @@ def set_driver():
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     chrome_options.add_argument('--incognito')
+    tmp_profile = tempfile.mkdtemp()
     
-    driver = webdriver.Chrome(options=chrome_options)
+    service = Service(executable_path="/usr/bin/chromedriver")
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    # stealth(driver,
+    #     languages=["en-US", "en"],
+    #     vendor="Google Inc.",
+    #     platform="Win32",
+    #     webgl_vendor="Intel Inc.",
+    #     renderer="Intel Iris OpenGL Engine",
+    #     fix_hairline=True,
+    # )
     driver.implicitly_wait(10)
     driver.set_page_load_timeout(10)
     return driver
+
+@contextmanager
+def timer(name: str):
+    t0 = time.time()
+    try:
+        yield
+    finally:
+        print(f"{name} done in {time.time() - t0:.3f} s")
         
 def main(site_name=None):
     """
@@ -699,6 +739,7 @@ def main(site_name=None):
     """
     driver = set_driver()
 
+    # 사이트 이름 → 클래스 매핑
     site_classes = {
         "QUASAR_ZONE": QUASAR_ZONE,
         "PPOM_PPU": PPOM_PPU,
@@ -710,22 +751,26 @@ def main(site_name=None):
     }
 
     if site_name not in site_classes:
-        logger.error(f"❌ Unknown site name: {site_name}")
-        logger.error(f"Available sites: {', '.join(site_classes.keys())}")
+        # 에러 메시지는 stderr로
+        print(f"❌ Unknown site name: {site_name}", file=sys.stderr)
+        print(f"Available sites: {', '.join(site_classes.keys())}", file=sys.stderr)
         driver.quit()
         sys.exit(1)
 
     try:
         site_instance = site_classes[site_name](driver)
         
-        logger.info(f"[Scanner] {site_name} 스캔 시작...")
+        # 스캔 실행 (디버그 로그는 stderr로)
+        # print(f"[Scanner] {site_name} 스캔 시작...", file=sys.stderr)
         site_instance.scanning()
         
+        # 새로운 아이템만 추출
         new_item_links = site_instance.get_new_item_link()
         new_trend_links = site_instance.get_new_trend_item_link()
         
-        logger.info(f"[Scanner] {site_name}: 새 아이템 {len(new_item_links)}개, 인기글 {len(new_trend_links)}개")
+        # print(f"[Scanner] {site_name}: 새 아이템 {len(new_item_links)}개, 인기글 {len(new_trend_links)}개", file=sys.stderr)
         
+        # 결과를 JSON으로 stdout에 출력 (Airflow가 이걸 읽음)
         result = {
             "site": site_name,
             "new_items": new_item_links,
@@ -735,10 +780,12 @@ def main(site_name=None):
             "timestamp": datetime.now().isoformat()
         }
         
+        # 이것만 stdout으로 출력 (Airflow가 파싱)
         print(json.dumps(result, ensure_ascii=False))
         
     except Exception as e:
-        logger.error(f"⚠️ Error while scanning {site_name}: {e}")
+        print(f"⚠️ Error while scanning {site_name}: {e}", file=sys.stderr)
+        # 에러 발생 시 빈 결과 반환
         print(json.dumps({
             "site": site_name,
             "new_items": [],
@@ -752,13 +799,15 @@ def main(site_name=None):
     finally:
         driver.quit()
 
-    logger.info(f"✅ {site_name} scanning complete!")
+    # print(f"✅ {site_name} scanning complete!", file=sys.stderr)
 
 
 if __name__ == "__main__":
+    import sys
+
     if len(sys.argv) < 2:
-        logger.error("⚠️ 사용법: python scanner.py [SITE_NAME]")
-        logger.error("예시: python scanner.py RULI_WEB")
+        print("⚠️ 사용법: python scanner.py [SITE_NAME]")
+        print("예시: python scanner.py RULI_WEB")
         sys.exit(1)
 
     site_name = sys.argv[1]
