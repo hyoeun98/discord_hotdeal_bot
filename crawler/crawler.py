@@ -141,7 +141,7 @@ class PAGES:
         try:
             async with AsyncSession() as s:
                 response = await s.get(link, impersonate="chrome")
-                return BeautifulSoup(response.text, "html.parser")
+                return BeautifulSoup(response.content, "html.parser")
         except Exception as e:
             logger.error("❌", e)
             return None
