@@ -958,12 +958,11 @@ class HotDealBot:
                     
                     except json.JSONDecodeError as e:
                         logging.error(f"Failed to decode trend message body: {e}")
-
+                        await self.delete_sqs_message(self.trend_sqs_url, receipt_handle)
                     except Exception as e:
                         logging.error(f"Error processing trend message: {e}")
                         print("".join(traceback.format_exception(type(e), e, e.__traceback__)))
-                        # 메시지 처리 실패 시 삭제하지 않고 큐에 남김
-                        continue
+                        await self.delete_sqs_message(self.trend_sqs_url, receipt_handle)
                         
             except Exception as e:
                 logging.error(f"Error in SQS polling: {e}")
@@ -1081,11 +1080,10 @@ class HotDealBot:
                         
                     except json.JSONDecodeError as e:
                         logging.error(f"Failed to decode message body: {e}")
-
+                        await self.delete_sqs_message(self.trend_sqs_url, receipt_handle)
                     except Exception as e:
                         logging.error(f"Error processing message: {e}")
-                        # 메시지 처리 실패 시 삭제하지 않고 큐에 남김
-                        continue
+                        await self.delete_sqs_message(self.trend_sqs_url, receipt_handle)
                         
             except Exception as e:
                 logging.error(f"Error in SQS polling: {e}")
