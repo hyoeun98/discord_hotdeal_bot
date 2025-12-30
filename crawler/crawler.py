@@ -141,97 +141,11 @@ class PAGES:
         try:
             async with AsyncSession() as s:
                 response = await s.get(link, impersonate="chrome")
-                return BeautifulSoup(response.content, "html.parser")
+                return BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
         except Exception as e:
             logger.error("❌", e)
             return None
     
-    async def get_bs4_soup_by_playwright(self, link):
-        context = None
-        page = None
-
-        # 🚀 1단계: 브라우저 유효성 검사 및 재시작 (NEW!)
-        if self.browser is None or not self.browser.is_connected():
-            logger.warning("Playwright browser connection lost. Attempting to restart...")
-            
-            # 기존 인스턴스 정리 (안전하게)
-            if self.browser:
-                try:
-                    await self.browser.close()
-                except:
-                    pass
-            if self.playwright:
-                try:
-                    await self.playwright.stop()
-                except:
-                    pass
-            
-            # Playwright 초기화 및 브라우저 재시작 (__aenter__ 로직 복사)
-            try:
-                self.playwright = await async_playwright().start()
-                self.browser = await self.playwright.chromium.launch(
-                    headless=True,
-                    args=[
-                        "--disable-gpu",
-                        "--disable-dev-shm-usage",
-                        "--no-sandbox",
-                        "--single-process", 
-                        # 안정성 인자들 (이전 답변에서 추가한 것들)
-                        "--disable-setuid-sandbox",
-                        "--disable-seccomp-filter-sandbox",
-                        "--disable-infobars", 
-                        "--window-size=1920,1080", 
-                        "--user-agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'",
-                    ],
-                )
-                logger.info("Playwright browser restarted successfully.")
-            except Exception:
-                logger.error("Failed to restart Playwright browser.")
-                return None
-
-
-        # ⚠️ 재시작 후에도 브라우저가 None이면 실패
-        if self.browser is None:
-             logger.error("Playwright browser is NOT initialized after restart. Cannot fetch: %s", link)
-             return None
-
-        try:
-            # 2단계: Context, Page 생성 및 작업 (이전 코드 유지)
-            # TargetClosedError는 여기서 발생 (브라우저가 닫혔을 때)
-            context = await self.browser.new_context(java_script_enabled=True)
-            page = await context.new_page()
-
-            # ... (리소스 차단 및 페이지 이동 로직은 유지)
-            async def block_resources(route):
-                if route.request.resource_type in ["image", "media", "font"]:
-                    await route.abort()
-                else:
-                    await route.continue_()
-
-            await page.route("**/*", block_resources)
-            await page.goto(link, wait_until="commit", timeout=60000)
-
-            html = await page.content()
-            return BeautifulSoup(html, "html.parser")
-
-        except Exception:
-            logger.exception("Failed to fetch page with playwright: %s", link)
-            return None
-
-        finally:
-            # 3단계: 리소스 해제 (이전 코드 유지)
-            if page:
-                try:
-                    await page.close()
-                except Exception:
-                    pass 
-                    
-            if context:
-                try:
-                    await context.close()
-                except Exception:
-                    pass
-            
     def pub_item_links(self, message):
         """SQS로 Crawl 정보 Publish"""
         try:
@@ -304,19 +218,11 @@ class QUASAR_ZONE(PAGES):
 
                 table = soup.select_one(self.selectors["table_css"])
                 table_info = re.sub(r'\s+', ' ', table.get_text()).strip()
-                shopping_mall_link = driver.find_element(
-                    By.XPATH, self.selectors["shopping_mall_link_selector"]
-                ).text
-                shopping_mall = driver.find_element(
-                    By.XPATH, self.selectors["shopping_mall_selector"]
-                ).text
-                price = driver.find_element(
-                    By.XPATH, self.selectors["price_selector"]
-                ).text
-                delivery = driver.find_element(
-                    By.XPATH, self.selectors["delivery_selector"]
-                ).text
-
+                shopping_mall_link = re.search(r'커미션을 지급받습니다\.\s+(.+?)\s+판매처', table_info).group(1).strip()
+                shopping_mall = re.search(r'판매처\s+(.+?)\s+가격', table_info).group(1).strip()
+                price = re.search(r'가격\s+(.+?)\s+배송비/직배', table_info).group(1).strip()
+                delivery = re.search(r'배송비/직배\s+(.+)', table_info).group(1).strip()
+                
             except Exception as e:
                 logger.error(f"❌ {self.site_name} fail: {item_link} - {str(e)}")
 

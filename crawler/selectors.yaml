@@ -6,10 +6,10 @@ QUASAR_ZONE:
     comment_list_css: "#content > div.sub-content-wrap > div.left-con-wrap > div.reply-wrap > div.reply-area > div.reply-list"
     category_selector: "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dt > div.util-area > div > div.ca_name"
     table_css: "table"
-    shopping_mall_link_selector: "table.market-info-view-table tbody tr:nth-of-type(1)"
-    shopping_mall_selector: "table.market-info-view-table tbody tr:nth-of-type(2)"
-    price_selector: "table.market-info-view-table tbody tr:nth-of-type(3)"
-    delivery_selector: "table.market-info-view-table tbody tr:nth-of-type(4)"
+    shopping_mall_link_selector: "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dd > table > tbody > tr:nth-child(1) > td > a"
+    shopping_mall_selector: "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dd > table > tbody > tr:nth-child(2) > td"
+    price_selector: "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dd > table > tbody > tr:nth-child(3) > td"
+    delivery_selector: "#content > div > div.sub-content-wrap > div.left-con-wrap > div.common-view-wrap.market-info-view-wrap > div > dl > dd > table > tbody > tr:nth-child(4) > td"
 
 ARCA_LIVE:
   crawling_selectors:
