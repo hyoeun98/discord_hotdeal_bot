@@ -124,6 +124,27 @@ class ChannelManager:
     #     finally:
     #         conn.close()
             
+            
+    def get_keyword(self, channel_id, user_id):
+        """keyword 출력"""
+        conn = self.get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT keyword FROM keywords WHERE channel_id = %s AND user_id = %s", (channel_id, user_id))
+                keywords = cur.fetchall()
+                if not keywords:
+                    return "등록된 키워드가 없습니다."
+                else:
+                    keyword_list = ', '.join(keyword[0] for keyword in keywords)
+                    return f"등록된 키워드 : {keyword_list}"
+                
+        except Exception as e:
+            logging.error(f"키워드 조회 중 오류 발생: {e}")
+            return (f"키워드 조회 중 오류가 발생했습니다: {e}")
+        
+        finally:
+            conn.close()
+            
     def add_keyword(self, channel_id, user_id, keyword):
         """keyword 추가"""
         conn = self.get_connection()
@@ -150,7 +171,7 @@ class ChannelManager:
         
         finally:
             conn.close()
-            
+                        
     def del_keyword(self, channel_id, user_id, keyword):
         """keyword 삭제"""
         conn = self.get_connection()
@@ -171,27 +192,7 @@ class ChannelManager:
             return (f"키워드 삭제 중 오류가 발생했습니다: {e}")
         
         finally:
-            conn.close()
-    
-    def get_keyword(self, channel_id, user_id):
-        """keyword 출력"""
-        conn = self.get_connection()
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT keyword FROM keywords WHERE channel_id = %s AND user_id = %s", (channel_id, user_id))
-                keywords = cur.fetchall()
-                if not keywords:
-                    return "등록된 키워드가 없습니다."
-                else:
-                    keyword_list = ', '.join(keyword[0] for keyword in keywords)
-                    return f"등록된 키워드 : {keyword_list}"
-                
-        except Exception as e:
-            logging.error(f"키워드 조회 중 오류 발생: {e}")
-            return (f"키워드 조회 중 오류가 발생했습니다: {e}")
-        
-        finally:
-            conn.close()
+            conn.close()    
     
     def map_keyword_to_channel(self, message):
         keywords = self.get_keyword_channel_user()
@@ -574,15 +575,21 @@ class HotDealBot:
             """알람 keyword 등록"""
             channel_id = interaction.channel.id if isinstance(interaction.channel, discord.TextChannel) else interaction.channel.parent_id
             result = self.channel_manager.add_keyword(channel_id, interaction.user.id, keyword.strip())
-            await interaction.response.send_message(result)
-
+            # await interaction.response.send_message(result)
+            
+            keywords = self.channel_manager.get_keyword(channel_id, interaction.user.id)
+            await interaction.response.send_message(f"{keyword} 등록 완료\n{keywords}")
+            
         @self.bot.tree.command(name="del_keyword", description="등록된 키워드를 삭제합니다.")
         async def del_keyword(interaction: discord.Interaction, keyword: str):
             """알람 keyword 삭제"""
             channel_id = interaction.channel.id if isinstance(interaction.channel, discord.TextChannel) else interaction.channel.parent_id
             result = self.channel_manager.del_keyword(channel_id, interaction.user.id, keyword)
-            await interaction.response.send_message(result)
-
+            # await interaction.response.send_message(result)
+            
+            keywords = self.channel_manager.get_keyword(channel_id, interaction.user.id)
+            await interaction.response.send_message(f"{keyword} 삭제 완료\n{keywords}")
+            
         @self.bot.tree.command(name="get_keyword", description="현재 등록된 키워드 목록을 보여줍니다.")
         async def get_keyword(interaction: discord.Interaction):
             """등록된 keyword 가져오기"""
