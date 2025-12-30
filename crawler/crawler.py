@@ -299,15 +299,23 @@ class QUASAR_ZONE(PAGES):
                 content = content_element.get_text(strip=True)
 
                 
-                category_element = soup.select_one(self.selectors["category_xpath"])
+                category_element = soup.select_one(self.selectors["category_selector"])
                 category = category_element.get_text(strip=True)
 
                 table = soup.select_one(self.selectors["table_css"])
                 table_info = re.sub(r'\s+', ' ', table.get_text()).strip()
-                shopping_mall_link = re.search(r'커미션을 지급받습니다\.\s+(.+?)\s+판매처', table_info).group(1).strip()
-                shopping_mall = re.search(r'판매처\s+(.+?)\s+가격', table_info).group(1).strip()
-                price = re.search(r'가격\s+(.+?)\s+배송비/직배', table_info).group(1).strip()
-                delivery = re.search(r'배송비/직배\s+(.+)', table_info).group(1).strip()
+                shopping_mall_link = driver.find_element(
+                    By.XPATH, self.selectors["shopping_mall_link_selector"]
+                ).text
+                shopping_mall = driver.find_element(
+                    By.XPATH, self.selectors["shopping_mall_selector"]
+                ).text
+                price = driver.find_element(
+                    By.XPATH, self.selectors["price_selector"]
+                ).text
+                delivery = driver.find_element(
+                    By.XPATH, self.selectors["delivery_selector"]
+                ).text
 
             except Exception as e:
                 logger.error(f"❌ {self.site_name} fail: {item_link} - {str(e)}")
