@@ -210,7 +210,11 @@ class QUASAR_ZONE(PAGES):
                 created_at = created_at_element.get_text(strip=True)
 
                 content_element = soup.select_one(self.selectors["content_css"])
-                content = content_element.get_text(strip=True)
+
+                if content_element:
+                    content = re.sub(r"\s+", r"\s", content_element.get_text(separator=" ", strip=True))
+                else:
+                    content = "err"
 
                 
                 category_element = soup.select_one(self.selectors["category_selector"])
