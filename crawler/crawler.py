@@ -555,7 +555,8 @@ class COOL_ENJOY(PAGES):
                 
                 content_selector = self.selectors.get("content_selector", "")
                 content_elem = soup.select_one(content_selector)
-                content = content_elem.get_text(strip=True) if content_elem else "err"
+                content = content_elem.get_text(separator="\n") if content_elem else "err"
+                content = re.sub(r"\s+", r"\s", content).strip()
                 
                 comment_id = self.selectors.get("comment_selector", "")
                 comments = soup.select(comment_id)
