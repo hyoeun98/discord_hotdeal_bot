@@ -417,7 +417,12 @@ class FM_KOREA(PAGES):
                     delivery = rows[4].text if rows[4] else "err"
 
                 content_selector = self.selectors.get("content_selector", "")
-                content = soup.select_one(content_selector).text if content_selector and soup.select_one(content_selector) else "err"
+                content = (
+                    re.sub(r"\s+", r"\s",
+                        soup.select_one(content_selector).get_text(separator="\n", strip=True)
+                    )
+                    if content_selector and soup.select_one(content_selector) else "err"
+                )
                 
                 comment_selector = self.selectors.get("comment_selector", "")
                 comments = soup.select(comment_selector)
