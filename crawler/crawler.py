@@ -212,7 +212,7 @@ class QUASAR_ZONE(PAGES):
                 content_element = soup.select_one(self.selectors["content_css"])
 
                 if content_element:
-                    content = re.sub(r"\s+", r"\s", content_element.get_text(separator=" ", strip=True))
+                    content = re.sub(r"\s+", r" ", content_element.get_text(separator=" ", strip=True))
                 else:
                     content = "err"
 
@@ -422,7 +422,7 @@ class FM_KOREA(PAGES):
 
                 content_selector = self.selectors.get("content_selector", "")
                 content = (
-                    re.sub(r"\s+", r"\s",
+                    re.sub(r"\s+", " ",
                         soup.select_one(content_selector).get_text(separator="\n", strip=True)
                     )
                     if content_selector and soup.select_one(content_selector) else "err"
@@ -565,7 +565,7 @@ class COOL_ENJOY(PAGES):
                 content_selector = self.selectors.get("content_selector", "")
                 content_elem = soup.select_one(content_selector)
                 content = content_elem.get_text(separator="\n") if content_elem else "err"
-                content = re.sub(r"\s+", r"\s", content).strip()
+                content = re.sub(r"\s+", " ", content).strip()
                 
                 comment_id = self.selectors.get("comment_selector", "")
                 comments = soup.select(comment_id)
