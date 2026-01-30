@@ -1128,23 +1128,25 @@ class HotDealBot:
 """
 
             # ChatGPT API 호출
-            response = await self.openai_client.chat.completions.create(
-                model="gpt-4.1-nano",
-                messages=[
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": prompt}
+            response = await self.openai_client.responses.create(
+                model="gpt-5-nano",
+                input=[
+                    {
+                        "role": "system",
+                        "content": system_message
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
                 ],
-                temperature=0.5,
-                max_completion_tokens=500
+                reasoning={"effort": "low"},
+                max_output_tokens=500
             )
             logging.info(str(response))
-            # 응답에서 태그 추출
-            ###### gpt 4.x
-            tags = response.choices[0].message.content.strip()
-            # print(json.dumps(response.model_dump(), indent=2))
             
-            ###### gpt 5.x
-            # tags = response.output[1].content.
+            # 응답에서 태그 추출
+            tags = response.output_text.strip()
             logging.info(f"Generated tags for {message['item_name']}: {tags}")
             return tags
 
