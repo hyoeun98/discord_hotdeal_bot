@@ -2,9 +2,6 @@
 
 cd /home/hyoeun/hotdeal_bot
 UV_PATH="/home/hyoeun/.local/bin/uv"
-export AWS_SHARED_CREDENTIALS_FILE=/home/hyoeun/.aws/credentials
-export AWS_CONFIG_FILE=/home/hyoeun/.aws/config
-export AWS_DEFAULT_REGION=ap-northeast-2
 export PLAYWRIGHT_BROWSERS_PATH=/home/hyoeun/.cache/ms-playwright
 # 로그 파일 위치
 LOG_DIR="/home/hyoeun/hotdeal_bot/scanner/logs"
