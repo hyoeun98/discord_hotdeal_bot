@@ -9,13 +9,23 @@ import discord
 from discord.ext import commands
 import asyncio
 from collections import defaultdict
-import boto3
 import psycopg2
 from openai import AsyncOpenAI
 import pendulum
+import redis.asyncio as redis
 from datetime import timedelta, timezone
-import functools
 import traceback
+from contextlib import suppress
+
+SITE_NAMES = [
+    "QUASAR_ZONE",
+    "PPOM_PPU",
+    "FM_KOREA",
+    "ARCA_LIVE",
+    "COOL_ENJOY",
+    "EOMI_SAE",
+    "RULI_WEB",
+]
 
 class ChannelManager:
     def __init__(self, db_config):
@@ -373,6 +383,7 @@ class HotDealBot:
         self.bot = None
         self.sqs = None
         self.channel_manager = None
+        self._background_tasks = []
         
     def setup_logging(self):
         """로깅 설정"""
@@ -410,7 +421,6 @@ class HotDealBot:
             "DB_PASSWORD",
             "DB_HOST",
             "DB_PORT",
-            "SQS_URL",
             "OPENAI_API_KEY"  # OpenAI API 키 추가
         ]
         
@@ -426,6 +436,12 @@ class HotDealBot:
             "host": os.environ.get("DB_HOST"),
             "port": os.environ.get("DB_PORT")
         }
+        self.redis_host = os.environ.get("REDIS_HOST", "localhost")
+        self.redis_port = int(os.environ.get("REDIS_PORT", 6379))
+        self.redis_db = int(os.environ.get("REDIS_DB", 0))
+        self.redis_password = os.environ.get("REDIS_PASSWORD")
+        self.crawl_channels = [f"crawl:{site_name}" for site_name in SITE_NAMES]
+        self.trend_channels = [f"trend:{site_name}" for site_name in SITE_NAMES]
         
         # OpenAI 클라이언트 설정
         self.openai_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -434,15 +450,20 @@ class HotDealBot:
 
     def setup_bot(self):
         """Discord 봇 초기화"""
+        parent = self
+
+        class ManagedBot(commands.Bot):
+            async def setup_hook(self):
+                await parent.start_background_tasks()
+
+            async def close(self):
+                await parent.stop_background_tasks()
+                await super().close()
+
         # Discord 봇 설정
         intents = discord.Intents.all()  # 모든 인텐트 활성화
-        self.bot = commands.Bot(command_prefix='/', intents=intents)
+        self.bot = ManagedBot(command_prefix='/', intents=intents)
         self.bot.remove_command("help")
-        
-        # SQS 클라이언트 설정
-        self.sqs = boto3.client("sqs", region_name="ap-northeast-2")
-        self.sqs_url = os.environ.get("SQS_URL")
-        self.trend_sqs_url = os.environ.get("TREND_SQS_URL")
         
         # ChannelManager 초기화
         self.channel_manager = ChannelManager(self.db_config)
@@ -467,9 +488,6 @@ class HotDealBot:
                     name="/help | 핫딜 정보 수집"
                 )
             )
-            # SQS consumer 시작
-            self.bot.loop.create_task(self.poll_sqs())
-            self.bot.loop.create_task(self.poll_trend_sqs())
         
         @self.bot.event
         async def on_guild_join(guild):
@@ -781,70 +799,34 @@ class HotDealBot:
             if conn:
                 conn.close()
                 
-    # def subscribe_sqs_message(self):
-    #     response = self.sqs.receive_message(
-    #                 QueueUrl=os.environ.get("SQS_URL"),
-    #                 AttributeNames=['All'],
-    #                 MessageAttributeNames=['All'],
-    #                 MaxNumberOfMessages=10
-    #     )
-    #     return response
-    
-    async def subscribe_sqs_message(self): # async로 변경
-        loop = asyncio.get_running_loop()
-        # 블로킹 함수에 인수를 전달하기 위해 partial 사용
-        # SQS 롱 폴링(WaitTimeSeconds)을 활성화하여 빈 응답 감소
-        func = functools.partial(
-            self.sqs.receive_message,
-            QueueUrl=self.sqs_url,
-            AttributeNames=['All'],
-            MessageAttributeNames=['All'],
-            MaxNumberOfMessages=10,
-            WaitTimeSeconds=20  # SQS 롱 폴링 활성화 (메시지를 최대 20초 동안 기다림)
-        )
-        response = await loop.run_in_executor(None, func) # None은 기본 ThreadPoolExecutor를 사용
-        return response
-    
-    async def subscribe_trend_sqs_message(self): # async로 변경
-        loop = asyncio.get_running_loop()
-        # 블로킹 함수에 인수를 전달하기 위해 partial 사용
-        # SQS 롱 폴링(WaitTimeSeconds)을 활성화하여 빈 응답 감소
-        func = functools.partial(
-            self.sqs.receive_message,
-            QueueUrl=self.trend_sqs_url,
-            AttributeNames=['All'],
-            MessageAttributeNames=['All'],
-            MaxNumberOfMessages=10,
-            WaitTimeSeconds=20  # SQS 롱 폴링 활성화 (메시지를 최대 20초 동안 기다림)
-        )
-        response = await loop.run_in_executor(None, func) # None은 기본 ThreadPoolExecutor를 사용
-        return response
-    
-    # def delete_sqs_message(self, receipt_handle):
-    #     self.sqs.delete_message(
-    #         QueueUrl=os.environ.get("SQS_URL"),
-    #         ReceiptHandle=receipt_handle
-    #     )
-        
-    async def delete_sqs_message(self, sqs_url, receipt_handle): # async로 변경
-        loop = asyncio.get_running_loop()
-        func = functools.partial(
-            self.sqs.delete_message,
-            QueueUrl=sqs_url,
-            ReceiptHandle=receipt_handle
-        )
-        await loop.run_in_executor(None, func)
-        
-    def get_site_name(self, message):
-        # 메시지 속성 검증
-        try:
-            attr = message["MessageAttributes"]
-            site_name = attr["site_name"]["StringValue"]
-            return site_name
-        
-        except:
-            logging.info(f"Invalid message : {message}")
-            return False
+    async def redis_subscribe(self, channel, handler):
+        while True:
+            redis_client = redis.Redis(
+                host=self.redis_host,
+                port=self.redis_port,
+                db=self.redis_db,
+                password=self.redis_password,
+                decode_responses=True,
+            )
+            pubsub = redis_client.pubsub()
+            try:
+                await pubsub.subscribe(channel)
+                logging.info(f"Subscribed to Redis channel: {channel}")
+                async for message in pubsub.listen():
+                    if message["type"] == "message":
+                        await handler(message["data"])
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logging.error(f"Redis consumer error on {channel}: {e}")
+                await asyncio.sleep(1)
+            finally:
+                with suppress(Exception):
+                    await pubsub.unsubscribe(channel)
+                with suppress(Exception):
+                    await pubsub.aclose()
+                with suppress(Exception):
+                    await redis_client.aclose()
                         
     def is_error_message(self, body):
         # 에러 메시지 체크
@@ -908,7 +890,8 @@ class HotDealBot:
                     SELECT message_id FROM message_logs
                     WHERE item_link = %s AND channel_id = %s
                 ''', (item_link, str(channel_id)))
-                result = cur.fetchone()[0]
+                row = cur.fetchone()
+                result = row[0] if row else None
         except Exception as e:
             logging.error(f"Error get message from meesage log: {e}")
             result = None
@@ -917,236 +900,253 @@ class HotDealBot:
                 conn.close()
             return result
         
-    async def poll_trend_sqs(self):
-        logging.info("Starting Trend SQS polling...")
-        while True:
-            try:
-                response = await self.subscribe_trend_sqs_message()
-                if "Messages" not in response:
-                    await asyncio.sleep(60)
+    async def process_trend_message(self, raw_msg):
+        try:
+            data = json.loads(raw_msg) if isinstance(raw_msg, str) else raw_msg
+            site_name = data.get("site")
+            links = data.get("links", [])
+            if not site_name or not links:
+                logging.error(f"Invalid trend payload: {data}")
+                return
+
+            for item_link in links:
+                is_duplicated = await asyncio.to_thread(
+                    self.is_duplicated_trend_message,
+                    site_name,
+                    item_link,
+                )
+                if is_duplicated:
+                    logging.info(f"duplicated trend message: {site_name}, {item_link}")
                     continue
 
-                # 모든 메시지 처리
-                for message in response['Messages']:
-                    receipt_handle = message['ReceiptHandle']
-                    try:
-                        # 메시지 속성 검증
-                        if not (site_name := self.get_site_name(message)):
-                            logging.error(f"invalid trend message site name : {site_name}, {message}")
-                            await self.delete_sqs_message(self.trend_sqs_url, receipt_handle)
-                            continue
-                        
-                        for item_link in json.loads(message['Body']):
-                            # 중복 체크
-                            if self.is_duplicated_trend_message(site_name, item_link):
-                                logging.error(f"duplicated trend message : {site_name}, {item_link}")
-                                await self.delete_sqs_message(self.trend_sqs_url, receipt_handle)
-                                continue
+                await asyncio.to_thread(
+                    self.insert_to_trend_item_links_table,
+                    item_link,
+                    site_name,
+                )
+                trend_thread_list = await asyncio.to_thread(
+                    self.channel_manager.get_trend_thread_channel_user
+                )
 
-                            # site_name_trend_item_links table에 삽입
-                            self.insert_to_trend_item_links_table(item_link, site_name)
+                for thread_id, channel_id, user_id in trend_thread_list:
+                    message_id = await asyncio.to_thread(
+                        self.get_message_id_from_message_log,
+                        item_link,
+                        channel_id,
+                    )
+                    if not message_id:
+                        continue
+                    channel = self.bot.get_channel(channel_id)
+                    if not channel:
+                        continue
+                    message = await channel.fetch_message(message_id)
+                    if not message.embeds:
+                        continue
+                    embed = message.embeds[0]
+                    embed.color = discord.Color.red()
+                    thread = self.bot.get_channel(thread_id)
+                    if thread:
+                        await thread.send(embed=embed)
+        except Exception as e:
+            logging.error(f"Error processing trend message: {e}")
+            print("".join(traceback.format_exception(type(e), e, e.__traceback__)))
 
-                            # keyword 및 thread 정보 가져오기
-                            trend_thread_list = self.channel_manager.get_trend_thread_channel_user()
-                            
-                            # thread, channel, user
-                            for thread_id, channel_id, user_id in trend_thread_list:
-                                message_id = self.get_message_id_from_message_log(item_link, channel_id)
-                                channel = self.bot.get_channel(channel_id)
-                                message = await channel.fetch_message(message_id)
-                                embed = message.embeds[0]
-                                embed.color = discord.Color.red()
-                                thread = self.bot.get_channel(thread_id)
-                                await thread.send(embed = embed)
-                            
-                            # 메시지 처리 완료 후 삭제
-                            await self.delete_sqs_message(self.trend_sqs_url, receipt_handle)
-                            logging.info(f"Successfully processed and deleted trend message: {item_link}")
-                    
-                    except json.JSONDecodeError as e:
-                        logging.error(f"Failed to decode trend message body: {e}")
-                        await self.delete_sqs_message(self.trend_sqs_url, receipt_handle)
-                    except Exception as e:
-                        logging.error(f"Error processing trend message: {e}")
-                        print("".join(traceback.format_exception(type(e), e, e.__traceback__)))
-                        await self.delete_sqs_message(self.trend_sqs_url, receipt_handle)
-                        
-            except Exception as e:
-                logging.error(f"Error in SQS polling: {e}")
-                
-            await asyncio.sleep(5)
-                
-    async def poll_sqs(self):
-        logging.info("Starting SQS polling...")
-        while True:
-            try:
-                response = await self.subscribe_sqs_message()
-                if "Messages" not in response:
-                    await asyncio.sleep(60)
+    async def poll_redis_trend(self):
+        logging.info("Starting Redis trend polling...")
+        tasks = [
+            asyncio.create_task(
+                self.redis_subscribe(channel, self.process_trend_message),
+                name=f"trend:{channel}",
+            )
+            for channel in self.trend_channels
+        ]
+        try:
+            await asyncio.gather(*tasks)
+        except asyncio.CancelledError:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
+
+    async def process_crawl_message(self, raw_msg):
+        try:
+            data = json.loads(raw_msg) if isinstance(raw_msg, str) else raw_msg
+            site_name = data.get("site")
+            body = data.get("data", data)
+            if not site_name or not isinstance(body, dict):
+                logging.error(f"invalid message payload: {data}")
+                return
+
+            if self.is_error_message(body):
+                logging.error(f"err message {body}")
+                return
+
+            if self.is_duplicated_message(site_name, body):
+                logging.info(f"duplicated message: {site_name}, {body.get('item_link')}")
+                return
+
+            pred_category = await self.classify_tag(body)
+            body["pred_category"] = pred_category
+
+            item_link = body["item_link"]
+            body["created_at"] = self.get_adjusted_timestamp(body["created_at"], site_name)
+            self.insert_to_item_links_table(body, site_name)
+
+            embed = self.transform_message(body, site_name)
+            thread_info_dict = self.channel_manager.map_thread_to_user_and_keyword(body)
+            channels = self.channel_manager.get_active_channels()
+            embeds_json = json.dumps([embed.to_dict()], ensure_ascii=False)
+
+            for channel_id in channels:
+                channel = self.bot.get_channel(channel_id)
+                if not channel:
+                    continue
+                try:
+                    channel_msg = await channel.send(embed=embed)
+                    self.channel_manager.log_message(
+                        channel_id=channel_id,
+                        message_id=channel_msg.id,
+                        embeds=embeds_json,
+                        item_link=item_link,
+                    )
+                except Exception as e:
+                    logging.error(f"Error sending message to channel {channel_id}: {e}")
+
+            for thread_id in thread_info_dict:
+                thread = self.bot.get_channel(thread_id)
+                if not (thread and isinstance(thread, discord.Thread)):
                     continue
 
-                # 모든 메시지 처리
-                for message in response['Messages']:
-                    receipt_handle = message['ReceiptHandle']
+                guild = thread.guild
+                users_to_mention = defaultdict(list)
+                for user_id, kw in thread_info_dict[thread_id]:
+                    users_to_mention[user_id].append(kw)
+                if not users_to_mention:
+                    continue
+
+                try:
+                    thread_msg = await thread.send(embed=embed)
+                except Exception as e:
+                    logging.error(f"Error sending embed to thread {thread_id}: {e}")
+                    continue
+
+                for user_id, kws in users_to_mention.items():
+                    user = guild.get_member(user_id)
+                    if not user:
+                        continue
                     try:
-                        # 메시지 속성 검증
-                        if not (site_name := self.get_site_name(message)):
-                            logging.error(f"invalid message site name : {site_name}, {message}")
-                            await self.delete_sqs_message(self.sqs_url, receipt_handle)
-                            continue
-                        
-                        body = json.loads(message['Body'])
-                        # 에러 메시지 체크 및 즉시 삭제
-                        if self.is_error_message(body):
-                            logging.error(f"err message {body}")
-                            await self.delete_sqs_message(self.sqs_url, receipt_handle)
-                            continue
-
-                        # 중복 체크
-                        if self.is_duplicated_message(site_name, body):
-                            logging.error(f"duplicated message : {site_name}, {body}")
-                            await self.delete_sqs_message(self.sqs_url, receipt_handle)
-                            continue
-                        
-                        # ChatGPT로 태그 생성
-                        pred_category = await self.classify_tag(body)
-                        body["pred_category"] = pred_category
-
-                        item_link = body["item_link"]
-                        
-                        # 시간 대 조정
-                        body["created_at"] = self.get_adjusted_timestamp(body["created_at"], site_name)
-                        # site_name_item_links table에 삽입
-                        self.insert_to_item_links_table(body, site_name)
-                        
-                        # embed 형식으로 transform
-                        embed = self.transform_message(body, site_name)
-                        
-                        # keyword 및 thread 정보 가져오기
-                        thread_info_dict = self.channel_manager.map_thread_to_user_and_keyword(body)
-                        
-                        # 활성화 된 모든 채널
-                        channels = self.channel_manager.get_active_channels()
-                        
-                        # 각 channel에 전송
-                        for channel_id in channels:
-                            channel = self.bot.get_channel(channel_id)
-                            if channel:
-                                try:
-                                    channel_msg = await channel.send(embed=embed)
-                                    embeds_list = [embed.to_dict() for embed in channel_msg.embeds]
-                                    embeds_json = json.dumps(embeds_list, ensure_ascii=False)
-                                    self.channel_manager.log_message(channel_id = channel_id, message_id = channel_msg.id, embeds = embeds_json, item_link = item_link)
-                                    
-                                except Exception as e:
-                                    logging.error(f"Error sending message to channel {channel_id}: {e}")
-                        
-                        # 각 thread에 전송
-                        for thread_id in thread_info_dict:
-                            thread = self.bot.get_channel(thread_id)
-                            if thread and isinstance(thread, discord.Thread):
-                                guild = thread.guild
-                                users_to_mention = defaultdict(list) # user_id를 키로, 해당 유저의 키워드 리스트를 값으로 저장
-
-                                # 현재 스레드에서 알림을 받을 유저와 해당 유저의 키워드들을 정리합니다.
-                                for user_id, kw in thread_info_dict[thread_id]:
-                                    users_to_mention[user_id].append(kw)
-
-                                if not users_to_mention: # 알림을 받을 유저가 없으면 다음 스레드로 넘어갑니다.
-                                    continue
-
-                                # Embed 메시지는 스레드에 한 번만 전송합니다.
-                                try:
-                                    thread_msg = await thread.send(embed=embed)
-                                    
-                                except Exception as e:
-                                    logging.error(f"Error sending embed to thread {thread_id}: {e}")
-                                    continue # Embed 전송에 실패하면 이 스레드에 대한 처리를 중단합니다.
-
-                                # 각 유저에게 묶인 키워드들을 포함한 멘션 메시지를 전송합니다.
-                                for user_id, kws in users_to_mention.items():
-                                    user = guild.get_member(user_id)
-                                    if user:
-                                        try:
-                                            keywords_str = ", ".join(kws) # 키워드 리스트를 문자열로 변환
-                                            await thread.send(f"{user.mention} {embed.title}\nkeywords: {keywords_str}")
-                                        except Exception as e:
-                                            logging.error(f"Error sending keyword mention to thread {thread_id} for user {user_id}: {e}")           
-
-                                self.channel_manager.log_message(channel_id = thread_id, message_id = thread_msg.id, embeds = embeds_json, item_link = item_link)
-                                
-                        # DB에 메시지 저장
-                        message_id = self.channel_manager.save_message(body, site_name)
-                        if message_id is None:
-                            logging.error("메시지 저장 실패, 다음 메시지로 넘어갑니다.")
-                            continue
-                        
-                        # 메시지 처리 완료 후 삭제
-                        await self.delete_sqs_message(self.sqs_url, receipt_handle)
-                        logging.info(f"Successfully processed and deleted message: {body['item_name']}")
-                        
-                    except json.JSONDecodeError as e:
-                        logging.error(f"Failed to decode message body: {e}")
-                        await self.delete_sqs_message(self.trend_sqs_url, receipt_handle)
+                        keywords_str = ", ".join(kws)
+                        await thread.send(f"{user.mention} {embed.title}\nkeywords: {keywords_str}")
                     except Exception as e:
-                        logging.error(f"Error processing message: {e}")
-                        await self.delete_sqs_message(self.trend_sqs_url, receipt_handle)
-                        
-            except Exception as e:
-                logging.error(f"Error in SQS polling: {e}")
-                
-            await asyncio.sleep(5)
+                        logging.error(f"Error sending keyword mention to thread {thread_id} for user {user_id}: {e}")
+
+                self.channel_manager.log_message(
+                    channel_id=thread_id,
+                    message_id=thread_msg.id,
+                    embeds=embeds_json,
+                    item_link=item_link,
+                )
+
+            message_id = self.channel_manager.save_message(body, site_name)
+            if message_id is None:
+                logging.error("메시지 저장 실패, 다음 메시지로 넘어갑니다.")
+                return
+
+            logging.info(f"Successfully processed message: {body['item_name']}")
+        except json.JSONDecodeError as e:
+            logging.error(f"Failed to decode message body: {e}")
+        except Exception as e:
+            logging.error(f"Error processing message: {e}")
+
+    async def poll_redis_crawl(self):
+        logging.info("Starting Redis crawl polling...")
+        tasks = [
+            asyncio.create_task(
+                self.redis_subscribe(channel, self.process_crawl_message),
+                name=f"crawl:{channel}",
+            )
+            for channel in self.crawl_channels
+        ]
+        try:
+            await asyncio.gather(*tasks)
+        except asyncio.CancelledError:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
+
+    async def start_background_tasks(self):
+        if any(not task.done() for task in self._background_tasks):
+            return
+        self._background_tasks = [
+            asyncio.create_task(self.poll_redis_crawl(), name="poll_redis_crawl"),
+            asyncio.create_task(self.poll_redis_trend(), name="poll_redis_trend"),
+        ]
+
+    async def stop_background_tasks(self):
+        if not self._background_tasks:
+            return
+        for task in self._background_tasks:
+            task.cancel()
+        await asyncio.gather(*self._background_tasks, return_exceptions=True)
+        self._background_tasks.clear()
 
     async def classify_tag(self, message):
         """아이템 분류 태그 생성"""
         try:
             system_message = """
-당신은 상품 분류 전문가입니다.
+너는 이커머스 상품 카테고리 분류 전문가다.
+아래 기준에 따라 상품 정보를 분석하고 카테고리 태그만 출력하라.
 
-다음 규칙에 따라 상품의 이름, 설명, 태그를 분석하여 **적절한 카테고리 태그**를 생성하세요.
+[분류 기준]
+- 대분류: 상품의 가장 상위 개념 (예: 식품, 생활용품, 가전, 패션, 뷰티, 반려동물 등)
+- 중분류: 대분류 하위의 용도 또는 상품군
+- 소분류: 실제 상품을 가장 구체적으로 설명하는 카테고리
 
-규칙:
-- 태그는 최대 3개.
-- 각 태그는 '#' 접두사를 붙이고, 한글로 작성.
-- 태그는 대분류 → 중분류 → 소분류 순서로 적절히 선정.
-- '상품태그'를 참고하되, 중복되지 않게 새로운 태그를 포함.
-- 태그는 띄어쓰기로 구분하고, 쉼표나 줄바꿈 없이 한 줄로 출력.
+[태그 생성 규칙]
+- 최대 3개 태그만 생성
+- 각 태그는 반드시 한글이며 '#'으로 시작
+- 태그 순서는 반드시 대분류 → 중분류 → 소분류
+- 기존 상품태그와 문자열이 완전히 동일한 태그는 생성하지 말 것
+- 의미가 유사하더라도 문자열이 다르면 생성 가능
+- 불확실한 경우 가장 일반적인 분류를 선택
 
-응답 형식:
-#대분류 #중분류 #소분류
+[출력 규칙 - 매우 중요]
+- 반드시 태그만 출력할 것
+- '#대분류', '#중분류', '#소분류' 와 같은 플레이스홀더 출력 금지
+- 판단 과정, 고민, 수정 문장, 영어, 특수문자 출력 금지
+- 출력은 한 줄이며 공백으로만 구분
+- 쉼표, 줄바꿈, 설명 문장 절대 금지
 
-예시:
+[올바른 출력 예]
+#가전 #PC부품 #그래픽카드
 #음식 #육류 #삼겹살
 """
+
             # GPT 프롬프트 구성
             prompt = f"""
+[상품 정보]
 상품명: {message['item_name']}
 상품설명: {message['content']}
-상품태그: {message['category']}
+기존상품태그: {message['category']}
 
 응답:
 """
 
             # ChatGPT API 호출
-            response = await self.openai_client.responses.create(
-                model="gpt-5-nano",
-                input=[
-                    {
-                        "role": "system",
-                        "content": system_message
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+            response = await self.openai_client.chat.completions.create(
+                model="gpt-4.1-nano",
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": prompt}
                 ],
-                reasoning={"effort": "low"},
-                max_output_tokens=500
+                temperature=0.5,
+                max_completion_tokens=500
             )
             logging.info(str(response))
             
             # 응답에서 태그 추출
-            tags = response.output_text.strip()
+            tags = response.choices[0].message.content.strip()
             logging.info(f"Generated tags for {message['item_name']}: {tags}")
             return tags
 

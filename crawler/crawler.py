@@ -2,7 +2,6 @@ import json
 import asyncio
 import aiohttp
 import re
-import boto3
 import os
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -33,8 +32,6 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-QUEUE_URL = os.environ["QUEUE_URL"]
-REGION = os.environ.get("REGION", "ap-northeast-2")
 DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
 
 ARCA_LIVE_LINK = "https://arca.live/b/hotdeal"
@@ -143,33 +140,25 @@ class PAGES:
                 response = await s.get(link, impersonate="chrome")
                 return BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
         except Exception as e:
-            logger.error("❌", e)
+            logger.error("❌ Failed to fetch URL %s: %s", link, e)
             return None
     
-    def pub_item_links(self, message):
-        """SQS로 Crawl 정보 Publish"""
+    async def pub_item_links(self, message):
+        """Redis Pub/Sub으로 Crawl 정보 Publish"""
         try:
-            sqs = boto3.client("sqs", region_name=REGION)
-            queue_url = QUEUE_URL
-            message_body = json.dumps(message, ensure_ascii=False)
             crawled_site = self.__class__.__name__
-            
-            response = sqs.send_message(
-                QueueUrl=queue_url,
-                MessageBody=message_body,
-                MessageAttributes={
-                    "is_crawling": {"DataType": "String", "StringValue": "1"},
-                    "site_name": {"DataType": "String", "StringValue": crawled_site},
-                },
-            )
-            
-            return response
+            payload = {
+                "type": "crawl",
+                "site": crawled_site,
+                "data": message,
+            }
+            channel = f"crawl:{crawled_site}"
+            await redis_client.publish(channel, json.dumps(payload, ensure_ascii=False))
+            return True
             
         except Exception as e:
-            logger.error(f"❌ SQS Error: {type(e).__name__}: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
+            logger.error(f"❌ Redis publish error: {type(e).__name__}: {e}")
+            return False
 
 
 class QUASAR_ZONE(PAGES):
@@ -244,7 +233,7 @@ class QUASAR_ZONE(PAGES):
                 }
 
                 logger.info(f"[{datetime.now().strftime('%Y%m%d_%H%M%S')}] {self.site_name}: {result}")
-                self.pub_item_links(result)
+                await self.pub_item_links(result)
                 
         await asyncio.gather(*(process_link(link) for link in item_link_list))
 
@@ -311,7 +300,7 @@ class ARCA_LIVE(PAGES):
                     "category": category,
                 }
                 logger.info(f"[{datetime.now().strftime('%Y%m%d_%H%M%S')}] {self.site_name}: {result}")
-                self.pub_item_links(result)
+                await self.pub_item_links(result)
                 
         await asyncio.gather(*(process_link(link) for link in item_link_list))
 
@@ -380,7 +369,7 @@ class RULI_WEB(PAGES):
                     "category": category,
                 }
                 logger.info(f"[{datetime.now().strftime('%Y%m%d_%H%M%S')}] {self.site_name}: {result}")
-                self.pub_item_links(result)
+                await self.pub_item_links(result)
 
         await asyncio.gather(*(process_link(link) for link in item_link_list))
         
@@ -458,7 +447,7 @@ class FM_KOREA(PAGES):
                     "category": category,
                 }
                 logger.info(f"[{datetime.now().strftime('%Y%m%d_%H%M%S')}] {self.site_name}: {result}")
-                self.pub_item_links(result)
+                await self.pub_item_links(result)
 
         await asyncio.gather(*(process_link(link) for link in item_link_list))
 
@@ -490,6 +479,8 @@ class PPOM_PPU(PAGES):
                 ) = "err", "err", "err", "err", "err", "err", "err", "err"
                 
                 item_name = soup.select_one(self.selectors["item_name_css"]).text
+                if not re.search(r"[가-힣a-zA-Z]", item_name):
+                    raise ValueError(f"유효하지 않은 상품명: {item_name}, {item_link}")
                 content = soup.select_one(self.selectors["content_selector"]).get_text(strip=True)
                 comment = [i.get_text(strip=True) for i in soup.select(self.selectors["comment_id"])]
                     
@@ -518,7 +509,7 @@ class PPOM_PPU(PAGES):
                     "category": category,
                 }
                 logger.info(f"[{datetime.now().strftime('%Y%m%d_%H%M%S')}] {self.site_name}: {result}")
-                self.pub_item_links(result)
+                await self.pub_item_links(result)
 
         await asyncio.gather(*(process_link(link) for link in item_link_list))
         
@@ -598,7 +589,7 @@ class COOL_ENJOY(PAGES):
                     "category": category,
                 }
                 logger.info(f"[{datetime.now().strftime('%Y%m%d_%H%M%S')}] {self.site_name}: {result}")
-                self.pub_item_links(result)
+                await self.pub_item_links(result)
 
         await asyncio.gather(*(process_link(link) for link in item_link_list))
 
@@ -669,7 +660,7 @@ class EOMI_SAE(PAGES):
                     "category": category,
                 }
                 logger.info(f"[{datetime.now().strftime('%Y%m%d_%H%M%S')}] {self.site_name}: {result}")
-                self.pub_item_links(result)
+                await self.pub_item_links(result)
 
         await asyncio.gather(*(process_link(link) for link in item_link_list))
 
@@ -728,7 +719,13 @@ async def process_message(msg):
 
 # --- Redis 구독 generator ---
 async def redis_subscribe(channel):
-    redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+    redis_client = redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD,
+        decode_responses=True,
+    )
     pubsub = redis_client.pubsub()
     await pubsub.subscribe(channel)
     logger.info(f"📡 Subscribed to {channel}")

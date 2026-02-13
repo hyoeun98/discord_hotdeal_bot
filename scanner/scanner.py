@@ -6,7 +6,6 @@ from datetime import datetime
 import psycopg2
 from dotenv import load_dotenv
 import yaml
-import boto3
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from selenium import webdriver
@@ -19,6 +18,7 @@ import re
 import sys
 import logging
 import tempfile
+from urllib.parse import urljoin
 from playwright.sync_api import sync_playwright
 
 
@@ -39,16 +39,12 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-QUEUE_URL = os.environ["QUEUE_URL"]
-REGION = os.environ.get("REGION", "ap-northeast-2")
 DB_HOST = os.environ["DB_HOST"]
 DB_NAME = os.environ["DB_NAME"]
 DB_USER = os.environ["DB_USER"]
 DB_PASSWORD = os.environ["DB_PASSWORD"]
 DB_PORT = os.environ["DB_PORT"]
 DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
-SNS_ARN = os.environ["SNS_ARN"]
-TREND_SQS_URL = os.environ["TREND_SQS_URL"]
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
@@ -97,9 +93,6 @@ def normalize_comment_count(comment):
         return 0
 
 SELECTORS = load_selectors()
-
-sns = boto3.client('sns', region_name=REGION)
-sqs = boto3.client('sqs', region_name=REGION)
     
 class PAGES(ABC):
     """각 Page들의 SuperClass"""
@@ -153,22 +146,16 @@ class PAGES(ABC):
         logger.info(f"[{site_name}] new trend links: {len(new_trend_item_link)}개")
         
         if new_trend_item_link:
-            message_body = json.dumps(new_trend_item_link)
-            num_item_links = str(len(new_trend_item_link))
-            
-            response = sqs.send_message(
-                QueueUrl=TREND_SQS_URL,
-                MessageBody=message_body,
-                MessageAttributes={
-                    "is_trend": {"DataType": "String", "StringValue": "1"},
-                    "site_name": {"DataType": "String", "StringValue": site_name},
-                    "num_item_links": {
-                        "DataType": "String",
-                        "StringValue": num_item_links,
-                    },
-                },
-            )
-            logger.info(f"success pub trend item\n{response}")
+            message = {
+                "type": "trend",
+                "site": site_name,
+                "links": new_trend_item_link,
+                "count": len(new_trend_item_link),
+                "timestamp": datetime.now().isoformat(),
+            }
+            channel = f"trend:{site_name}"
+            redis_client.publish(channel, json.dumps(message, ensure_ascii=False))
+            logger.info(f"[{site_name}] Published {len(new_trend_item_link)} trend items to Redis channel: {channel}")
         else:
             logger.info("not found new trend item links")
 
@@ -305,8 +292,7 @@ class QUASAR_ZONE(PAGES):
         self.selectors = SELECTORS[self.site_name]
 
     def get_merged_item_link(self, item_link):
-        merged_item_link = self.site_link.rstrip("/bbs/qb_saleinfo") + item_link
-        return merged_item_link
+        return urljoin(self.site_link, item_link)
     
     def get_comment_count(self, item):
         s_config = self.selectors['get_comment_count']
@@ -361,9 +347,7 @@ class ARCA_LIVE(PAGES):
         self.selectors = SELECTORS[self.site_name]
 
     def get_merged_item_link(self, item_link):
-        merged_item_link = self.site_link.rstrip("/b/hotdeal") + item_link
-        merged_item_link = merged_item_link.replace("liv", "live")
-        return merged_item_link
+        return urljoin(self.site_link, item_link)
     
     def get_comment_count(self, item):
         s_config = self.selectors['get_comment_count']
@@ -417,8 +401,7 @@ class FM_KOREA(PAGES):
         self.selectors = SELECTORS[self.site_name]
     
     def get_merged_item_link(self, item_link):
-        merged_item_link = self.site_link.rstrip("/hotdeal") + item_link
-        return merged_item_link
+        return urljoin(self.site_link, item_link)
     
     def get_comment_count(self, item):
         s_config = self.selectors['get_comment_count']
@@ -474,8 +457,7 @@ class PPOM_PPU(PAGES):
         self.selectors = SELECTORS[self.site_name]
 
     def get_merged_item_link(self, item_link):
-        merged_item_link = self.site_link.rstrip("zboard.php?id=ppomppu") + item_link
-        return merged_item_link
+        return urljoin(self.site_link, item_link)
     
     def get_comment_count(self, item):
         s_config = self.selectors['get_comment_count']
@@ -612,6 +594,7 @@ class EOMI_SAE(PAGES):
         for row in rows:
             try:
                 item_link = row.select_one("h3").select_one("a")["href"]
+                item_link = urljoin(self.site_link, item_link)
                 self.item_link_list.append(item_link)
                 comment_count = self.get_comment_count(row)
                     
