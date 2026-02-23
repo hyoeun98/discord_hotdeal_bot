@@ -110,7 +110,7 @@ class ChannelManager:
                     channel_id,
                     message_id,
                     json.dumps(embeds) if embeds else None,
-                    datetime.now(),
+                    datetime.now(timezone.utc),
                     guild_id,
                     item_link
                 ))
@@ -119,6 +119,7 @@ class ChannelManager:
             logging.error(f"메시지 로그 기록 중 오류 발생: {e}")
         finally:
             conn.close()
+
 
     # def get_channel_stats(self, channel_id):
     #     """채널 통계 조회"""
@@ -297,8 +298,21 @@ class ChannelManager:
         """메시지를 DB에 저장"""
         conn = self.get_connection()
         try:
+            created_at = message.get("created_at")
+
+            # DB 저장은 UTC로 통일
+            if isinstance(created_at, pendulum.DateTime):
+                created_at_for_db = created_at.in_timezone("UTC")
+            elif isinstance(created_at, datetime) and created_at.tzinfo is not None:
+                created_at_for_db = created_at.astimezone(timezone.utc)
+            elif isinstance(created_at, datetime):
+                # naive면 KST로 들어왔다고 가정 후 UTC 변환
+                kst = timezone(timedelta(hours=9))
+                created_at_for_db = created_at.replace(tzinfo=kst).astimezone(timezone.utc)
+            else:
+                created_at_for_db = datetime.now(timezone.utc)
+
             with conn.cursor() as cur:
-                # 새로운 메시지 삽입
                 cur.execute(f'''
                     INSERT INTO {site_name.lower()}
                     (item_name, item_link, shopping_mall_link, shopping_mall, delivery, price, created_at, category, pred_category)
@@ -311,7 +325,7 @@ class ChannelManager:
                     message["shopping_mall"],
                     message["delivery"],
                     message["price"],
-                    message["created_at"],
+                    created_at_for_db,
                     message["category"],
                     message["pred_category"]
                 ))
@@ -319,14 +333,15 @@ class ChannelManager:
                 conn.commit()
                 logging.info(f"새 메시지 저장 완료: {message_id}")
                 return message_id
-                
+
         except Exception as e:
             conn.rollback()
             logging.error(f"메시지 저장 중 오류 발생: {e}")
             return None
-            
+
         finally:
             conn.close()
+
 
 
     def make_thread(self, channel_id, user_id, thread_id, thread_name, table_name):
@@ -388,25 +403,25 @@ class HotDealBot:
     def setup_logging(self):
         """로깅 설정"""
         log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        
-        # UTC+9 타임존 변환 함수
+
+        # record.created(에폭 초)를 KST로 변환해서 출력
         KST = timezone(timedelta(hours=9))
-        log_formatter.converter = lambda *args: datetime.now(KST).timetuple()
-        
-        # 파일 핸들러 설정 (로그 파일 크기 제한 및 백업)
+        log_formatter.converter = lambda secs: datetime.fromtimestamp(secs, tz=KST).timetuple()
+
         file_handler = RotatingFileHandler(
             '/home/hyoeun/hotdeal_bot/bot/logs/discord.log',
-            maxBytes=3*1024*1024,  # 10MB
+            maxBytes=3 * 1024 * 1024,
             backupCount=5,
             encoding='utf-8'
         )
         file_handler.setFormatter(log_formatter)
-        
-        # 로거 설정
+
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
-        logger.addHandler(file_handler)
-        
+
+        if not any(isinstance(h, RotatingFileHandler) for h in logger.handlers):
+            logger.addHandler(file_handler)
+
         logging.info("Logging setup completed")
 
     def setup_environment(self):
@@ -434,7 +449,8 @@ class HotDealBot:
             "user": os.environ.get("DB_USER"),
             "password": os.environ.get("DB_PASSWORD"),
             "host": os.environ.get("DB_HOST"),
-            "port": os.environ.get("DB_PORT")
+            "port": os.environ.get("DB_PORT"),
+            "options": "-c timezone=UTC",
         }
         self.redis_host = os.environ.get("REDIS_HOST", "localhost")
         self.redis_port = int(os.environ.get("REDIS_PORT", 6379))
@@ -1163,15 +1179,37 @@ class HotDealBot:
         return content
 
     def get_adjusted_timestamp(self, created_at_str, site_name):
-        """문자열로부터 파싱하고 필요한 경우 시간대를 조정한 timestamp를 반환합니다."""
-        if site_name == "RULI_WEB":
-            created_at_str = re.sub(r'(\d{4}\.\d{2}\.\d{2}) \((\d{2}:\d{2}):\d{2}\)', r'\1 \2', created_at_str)
-            
-        created_at = pendulum.parse(created_at_str.replace(".", "-"), strict=False, tz="Asia/Seoul")
-        if site_name == "ARCA_LIVE":
-            created_at = created_at.add(hours=9)
+        """문자열 created_at을 파싱하고, (원문 TZ -> KST)로 변환한 datetime을 반환"""
+        try:
+            if not created_at_str:
+                return pendulum.now("Asia/Seoul")
 
-        return created_at
+            s = created_at_str.strip()
+
+            if site_name == "RULI_WEB":
+                # 예: "2024.01.02 (12:34:56)" -> "2024.01.02 12:34"
+                s = re.sub(
+                    r'(\d{4}\.\d{2}\.\d{2}) \((\d{2}:\d{2}):\d{2}\)',
+                    r'\1 \2',
+                    s
+                )
+
+            # 공통 정규화
+            s = s.replace(".", "-")
+
+            # 사이트별 "원본 타임존" 지정
+            source_tz = "Asia/Seoul"
+            if site_name == "ARCA_LIVE":
+                # 기존 코드가 +9시간을 했던 걸 보면 원본이 UTC였다고 가정
+                source_tz = "UTC"
+
+            dt = pendulum.parse(s, strict=False, tz=source_tz)
+            return dt.in_timezone("Asia/Seoul")
+
+        except Exception as e:
+            logging.error(f"Error parsing created_at ({site_name}): {created_at_str} / {e}")
+            return pendulum.now("Asia/Seoul")
+
     
     def transform_message(self, message, site_name):
         """메시지를 Discord 임베드 형식으로 변환"""
