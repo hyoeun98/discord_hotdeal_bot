@@ -13,6 +13,7 @@ import tempfile
 import redis.asyncio as redis
 from curl_cffi import AsyncSession
 import logging
+from logging.handlers import RotatingFileHandler
 from playwright.async_api import async_playwright
 
 # --- Logging 설정 ---
@@ -24,9 +25,14 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.FileHandler(log_file, encoding="utf-8"),
-        logging.StreamHandler()
-    ]
+        RotatingFileHandler(
+            log_file,
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=5,
+            encoding="utf-8",
+        ),
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -138,7 +144,7 @@ class PAGES:
         try:
             async with AsyncSession() as s:
                 response = await s.get(link, impersonate="chrome")
-                return BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
+                return BeautifulSoup(response.content, "html.parser")
         except Exception as e:
             logger.error("❌ Failed to fetch URL %s: %s", link, e)
             return None
