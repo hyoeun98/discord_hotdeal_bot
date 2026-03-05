@@ -17,6 +17,7 @@ import curl_cffi
 import re
 import sys
 import logging
+from logging.handlers import RotatingFileHandler
 import tempfile
 from urllib.parse import urljoin
 from playwright.sync_api import sync_playwright
@@ -25,17 +26,33 @@ from playwright.sync_api import sync_playwright
 # --- 로깅 설정 ---
 log_dir = os.path.join(os.path.dirname(__file__), 'logs')
 os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "scanner.log")
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(log_file, encoding="utf-8"),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
+
+
+def setup_site_logger(site_name: str):
+    """사이트별 로그 파일 핸들러를 동적으로 설정"""
+    site_log_file = os.path.join(log_dir, f"scanner_{site_name.lower()}.log")
+
+    # 기존 RotatingFileHandler 제거(중복 방지)
+    for h in list(logger.handlers):
+        if isinstance(h, RotatingFileHandler):
+            logger.removeHandler(h)
+            h.close()
+
+    site_handler = RotatingFileHandler(
+        site_log_file,
+        maxBytes=10 * 1024 * 1024,  # 10MB
+        backupCount=5,
+        encoding="utf-8",
+    )
+    site_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    logger.addHandler(site_handler)
 
 load_dotenv()
 
@@ -681,8 +698,6 @@ def main(site_name=None):
     특정 사이트 이름을 인자로 받아 해당 사이트만 스캔
     예: python scanner.py RULI_WEB
     """
-    driver = set_driver()
-
     site_classes = {
         "QUASAR_ZONE": QUASAR_ZONE,
         "PPOM_PPU": PPOM_PPU,
@@ -696,8 +711,10 @@ def main(site_name=None):
     if site_name not in site_classes:
         logger.error(f"❌ Unknown site name: {site_name}")
         logger.error(f"Available sites: {', '.join(site_classes.keys())}")
-        driver.quit()
         sys.exit(1)
+
+    setup_site_logger(site_name)
+    driver = set_driver()
 
     try:
         site_instance = site_classes[site_name](driver)
