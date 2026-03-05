@@ -612,17 +612,21 @@ class HotDealBot:
             # await interaction.response.send_message(result)
             
             keywords = self.channel_manager.get_keyword(channel_id, interaction.user.id)
-            await interaction.response.send_message(f"{keyword} 등록 완료\n{keywords}")
+            await interaction.response.send_message(f"`{keyword}` 등록 완료\n{keywords}")
             
         @self.bot.tree.command(name="del_keyword", description="등록된 키워드를 삭제합니다.")
         async def del_keyword(interaction: discord.Interaction, keyword: str):
             """알람 keyword 삭제"""
             channel_id = interaction.channel.id if isinstance(interaction.channel, discord.TextChannel) else interaction.channel.parent_id
             result = self.channel_manager.del_keyword(channel_id, interaction.user.id, keyword)
-            # await interaction.response.send_message(result)
-            
+
+            if "등록되지 않은 키워드" in result:
+                keywords = self.channel_manager.get_keyword(channel_id, interaction.user.id)
+                await interaction.response.send_message(f"등록되지 않은 키워드: `{keyword}`\n{keywords}")
+                return
+
             keywords = self.channel_manager.get_keyword(channel_id, interaction.user.id)
-            await interaction.response.send_message(f"{keyword} 삭제 완료\n{keywords}")
+            await interaction.response.send_message(f"`{keyword}` 삭제 완료\n{keywords}")
             
         @self.bot.tree.command(name="get_keyword", description="현재 등록된 키워드 목록을 보여줍니다.")
         async def get_keyword(interaction: discord.Interaction):
