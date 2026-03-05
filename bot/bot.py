@@ -984,89 +984,110 @@ class HotDealBot:
             await asyncio.gather(*tasks, return_exceptions=True)
             raise
 
-    async def process_crawl_message(self, raw_msg):
-        try:
-            data = json.loads(raw_msg) if isinstance(raw_msg, str) else raw_msg
-            site_name = data.get("site")
-            body = data.get("data", data)
-            if not site_name or not isinstance(body, dict):
-                logging.error(f"invalid message payload: {data}")
-                return
+    def _parse_crawl_payload(self, raw_msg):
+        data = json.loads(raw_msg) if isinstance(raw_msg, str) else raw_msg
+        site_name = data.get("site")
+        body = data.get("data", data)
 
-            if self.is_error_message(body):
-                logging.error(f"err message {body}")
-                return
+        if not site_name or not isinstance(body, dict):
+            raise ValueError(f"invalid message payload: {data}")
 
-            if self.is_duplicated_message(site_name, body):
-                logging.info(f"duplicated message: {site_name}, {body.get('item_link')}")
-                return
+        return site_name, body
 
-            pred_category = await self.classify_tag(body)
-            body["pred_category"] = pred_category
+    def _should_skip_message(self, site_name, body):
+        if self.is_error_message(body):
+            logging.info(f"skip error message: {body}")
+            return True
 
-            item_link = body["item_link"]
-            body["created_at"] = self.get_adjusted_timestamp(body["created_at"], site_name)
-            self.insert_to_item_links_table(body, site_name)
+        if self.is_duplicated_message(site_name, body):
+            logging.info(f"duplicated message: {site_name}, {body.get('item_link')}")
+            return True
 
-            embed = self.transform_message(body, site_name)
-            thread_info_dict = self.channel_manager.map_thread_to_user_and_keyword(body)
-            channels = self.channel_manager.get_active_channels()
-            embeds_json = json.dumps([embed.to_dict()], ensure_ascii=False)
+        return False
 
-            for channel_id in channels:
-                channel = self.bot.get_channel(channel_id)
-                if not channel:
-                    continue
-                try:
-                    channel_msg = await channel.send(embed=embed)
-                    self.channel_manager.log_message(
-                        channel_id=channel_id,
-                        message_id=channel_msg.id,
-                        embeds=embeds_json,
-                        item_link=item_link,
-                    )
-                except Exception as e:
-                    logging.error(f"Error sending message to channel {channel_id}: {e}")
+    async def _enrich_message(self, site_name, body):
+        body["pred_category"] = await self.classify_tag(body)
+        body["created_at"] = self.get_adjusted_timestamp(body["created_at"], site_name)
+        return body
 
-            for thread_id in thread_info_dict:
-                thread = self.bot.get_channel(thread_id)
-                if not (thread and isinstance(thread, discord.Thread)):
-                    continue
+    async def _publish_to_channels(self, embed, item_link):
+        channels = self.channel_manager.get_active_channels()
+        embeds_json = json.dumps([embed.to_dict()], ensure_ascii=False)
 
-                guild = thread.guild
-                users_to_mention = defaultdict(list)
-                for user_id, kw in thread_info_dict[thread_id]:
-                    users_to_mention[user_id].append(kw)
-                if not users_to_mention:
-                    continue
-
-                try:
-                    thread_msg = await thread.send(embed=embed)
-                except Exception as e:
-                    logging.error(f"Error sending embed to thread {thread_id}: {e}")
-                    continue
-
-                for user_id, kws in users_to_mention.items():
-                    user = guild.get_member(user_id)
-                    if not user:
-                        continue
-                    try:
-                        keywords_str = ", ".join(kws)
-                        await thread.send(f"{user.mention} {embed.title}\nkeywords: {keywords_str}")
-                    except Exception as e:
-                        logging.error(f"Error sending keyword mention to thread {thread_id} for user {user_id}: {e}")
-
+        for channel_id in channels:
+            channel = self.bot.get_channel(channel_id)
+            if not channel:
+                continue
+            try:
+                channel_msg = await channel.send(embed=embed)
                 self.channel_manager.log_message(
-                    channel_id=thread_id,
-                    message_id=thread_msg.id,
+                    channel_id=channel_id,
+                    message_id=channel_msg.id,
                     embeds=embeds_json,
                     item_link=item_link,
                 )
+            except Exception as e:
+                logging.error(f"Error sending message to channel {channel_id}: {e}")
 
-            message_id = self.channel_manager.save_message(body, site_name)
-            if message_id is None:
-                logging.error("메시지 저장 실패, 다음 메시지로 넘어갑니다.")
+    async def _publish_to_threads(self, embed, body, item_link):
+        thread_info_dict = self.channel_manager.map_thread_to_user_and_keyword(body)
+        embeds_json = json.dumps([embed.to_dict()], ensure_ascii=False)
+
+        for thread_id in thread_info_dict:
+            thread = self.bot.get_channel(thread_id)
+            if not (thread and isinstance(thread, discord.Thread)):
+                continue
+
+            guild = thread.guild
+            users_to_mention = defaultdict(list)
+            for user_id, kw in thread_info_dict[thread_id]:
+                users_to_mention[user_id].append(kw)
+            if not users_to_mention:
+                continue
+
+            try:
+                thread_msg = await thread.send(embed=embed)
+            except Exception as e:
+                logging.error(f"Error sending embed to thread {thread_id}: {e}")
+                continue
+
+            for user_id, kws in users_to_mention.items():
+                user = guild.get_member(user_id)
+                if not user:
+                    continue
+                try:
+                    keywords_str = ", ".join(kws)
+                    await thread.send(f"{user.mention} {embed.title}\nkeywords: {keywords_str}")
+                except Exception as e:
+                    logging.error(f"Error sending keyword mention to thread {thread_id} for user {user_id}: {e}")
+
+            self.channel_manager.log_message(
+                channel_id=thread_id,
+                message_id=thread_msg.id,
+                embeds=embeds_json,
+                item_link=item_link,
+            )
+
+    def _persist_message(self, body, site_name):
+        self.insert_to_item_links_table(body, site_name)
+        message_id = self.channel_manager.save_message(body, site_name)
+        if message_id is None:
+            raise RuntimeError("메시지 저장 실패")
+
+    async def process_crawl_message(self, raw_msg):
+        try:
+            site_name, body = self._parse_crawl_payload(raw_msg)
+
+            if self._should_skip_message(site_name, body):
                 return
+
+            body = await self._enrich_message(site_name, body)
+            item_link = body["item_link"]
+            embed = self.transform_message(body, site_name)
+
+            await self._publish_to_channels(embed, item_link)
+            await self._publish_to_threads(embed, body, item_link)
+            self._persist_message(body, site_name)
 
             logging.info(f"Successfully processed message: {body['item_name']}")
         except json.JSONDecodeError as e:
