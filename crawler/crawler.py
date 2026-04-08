@@ -466,6 +466,20 @@ class PPOM_PPU(PAGES):
         self.site_name = "PPOM_PPU"
         self.selectors = SELECTORS[self.site_name]["crawling_selectors"]
 
+    async def get_bs4_soup(self, link):
+        """뽐뿌는 CP949(EUC-KR) 인코딩 사용 — 명시적으로 디코딩"""
+        try:
+            async with AsyncSession() as s:
+                response = await s.get(link, impersonate="chrome")
+                try:
+                    content = response.content.decode("cp949")
+                except (UnicodeDecodeError, LookupError):
+                    content = response.content.decode("utf-8", errors="replace")
+                return BeautifulSoup(content, "html.parser")
+        except Exception as e:
+            logger.error("❌ Failed to fetch URL %s: %s", link, e)
+            return None
+
     async def crawling(self, item_link_list):
         async def process_link(item_link):
             soup = await self.get_bs4_soup(item_link)
