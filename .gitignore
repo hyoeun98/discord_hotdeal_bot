@@ -110,3 +110,4 @@ docker-data/
 *.db
 *.sql
 *.ipynb
+.claude/
