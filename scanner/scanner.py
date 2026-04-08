@@ -177,6 +177,7 @@ class PAGES(ABC):
             logger.info("not found new trend item links")
 
     def db_get_item_links(self):
+        conn = None
         try:
             conn = psycopg2.connect(**db_config)
             cursor = conn.cursor()
@@ -196,7 +197,12 @@ class PAGES(ABC):
             logger.error(str(e))
             return []
 
+        finally:
+            if conn:
+                conn.close()
+
     def db_get_trend_item_links(self):
+        conn = None
         try:
             conn = psycopg2.connect(**db_config)
             cursor = conn.cursor()
@@ -215,6 +221,10 @@ class PAGES(ABC):
         except Exception as e:
             logger.error(str(e))
             return []
+
+        finally:
+            if conn:
+                conn.close()
 
     @abstractmethod
     def get_item_links(self):

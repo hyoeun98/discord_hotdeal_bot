@@ -206,9 +206,9 @@ class ChannelManager:
             conn.close()    
     
     def map_keyword_to_channel(self, message):
-        keywords = self.get_keyword_channel_user()
         """message에 keyword가 있는지 확인하고
         dict[channel_id] = [(user_id, keyword), ...]로 return"""
+        keywords = self.get_keyword_channel_user()
         channel_keyword_mapping_dict = defaultdict(list)
         try:           
             for kw, channel_id, user_id in keywords:
@@ -380,10 +380,13 @@ class ChannelManager:
                 else:  # trend_threads 테이블일 시
                     cur.execute("SELECT id FROM trend_threads WHERE thread_id = %s", (thread_id,))
                     exist = cur.fetchone()
-                    
-                    cur.execute("DELETE FROM trend_threads WHERE thread_id = %s", (thread_id,))
-                    conn.commit()
-                    return "스레드 삭제 완료."
+
+                    if exist:
+                        cur.execute("DELETE FROM trend_threads WHERE thread_id = %s", (thread_id,))
+                        conn.commit()
+                        return "스레드 삭제 완료."
+                    else:
+                        return "등록되지 않은 스레드입니다."
                 
         except Exception as e:
             logging.error(f"스레드 삭제 중 오류 발생: {e}")
@@ -757,6 +760,7 @@ class HotDealBot:
 
     def insert_to_item_links_table(self, message, site_name):
         table_name = site_name.lower() + "_item_links"
+        conn = None
         try:
             conn = psycopg2.connect(**self.db_config)
             cursor = conn.cursor()
@@ -789,6 +793,7 @@ class HotDealBot:
             
     def insert_to_trend_item_links_table(self, message, site_name):
         table_name = site_name.lower() + "_trend_item_links"
+        conn = None
         try:
             conn = psycopg2.connect(**self.db_config)
             cursor = conn.cursor()
@@ -918,7 +923,7 @@ class HotDealBot:
         finally:
             if conn:
                 conn.close()
-            return result
+        return result
         
     async def process_trend_message(self, raw_msg):
         try:
