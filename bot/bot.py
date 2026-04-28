@@ -1140,12 +1140,13 @@ class HotDealBot:
     async def classify_tag(self, message):
         """아이템 분류 태그 생성"""
         try:
-            system_message = """너는 이커머스 상품 카테고리 분류 전문가다.
-상품 정보를 보고 카테고리 태그 3개를 대분류 → 중분류 → 소분류 순서로 출력하라.
+            system_message = """너는 핫딜 상품 태그 생성 전문가다.
+상품 정보를 보고 해당 상품을 가장 잘 설명하는 태그 3개를 자유롭게 선택하라.
 
 [출력 규칙]
 - 반드시 태그 3개만 출력 (더도 말고 덜도 말고)
 - 각 태그는 한글이며 '#'으로 시작, 공백으로 구분
+- 상품을 검색할 때 쓸 법한 구체적인 키워드를 우선
 - 설명, 줄바꿈, 쉼표, 영어, 플레이스홀더 출력 금지
 - 기존상품태그와 완전히 동일한 문자열은 사용하지 말 것"""
 
@@ -1156,7 +1157,7 @@ class HotDealBot:
                 },
                 {
                     "role": "assistant",
-                    "content": "#가전 #PC부품 #그래픽카드"
+                    "content": "#그래픽카드 #게이밍PC #고성능GPU"
                 },
                 {
                     "role": "user",
@@ -1164,7 +1165,7 @@ class HotDealBot:
                 },
                 {
                     "role": "assistant",
-                    "content": "#식품 #육류 #삼겹살"
+                    "content": "#삼겹살 #국내산돼지고기 #구이"
                 },
                 {
                     "role": "user",
@@ -1172,7 +1173,7 @@ class HotDealBot:
                 },
                 {
                     "role": "assistant",
-                    "content": "#패션 #신발 #운동화"
+                    "content": "#나이키 #에어맥스 #운동화"
                 },
                 {
                     "role": "user",
@@ -1180,7 +1181,7 @@ class HotDealBot:
                 },
                 {
                     "role": "assistant",
-                    "content": "#생활가전 #청소용품 #무선청소기"
+                    "content": "#다이슨 #무선청소기 #코드리스"
                 },
                 {
                     "role": "user",
@@ -1188,7 +1189,7 @@ class HotDealBot:
                 },
                 {
                     "role": "assistant",
-                    "content": "#뷰티 #스킨케어 #크림"
+                    "content": "#설화수 #보습크림 #안티에이징"
                 },
             ]
 
