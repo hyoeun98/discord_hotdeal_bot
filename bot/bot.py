@@ -1140,54 +1140,69 @@ class HotDealBot:
     async def classify_tag(self, message):
         """아이템 분류 태그 생성"""
         try:
-            system_message = """
-너는 이커머스 상품 카테고리 분류 전문가다.
-아래 기준에 따라 상품 정보를 분석하고 카테고리 태그만 출력하라.
+            system_message = """너는 이커머스 상품 카테고리 분류 전문가다.
+상품 정보를 보고 카테고리 태그 3개를 대분류 → 중분류 → 소분류 순서로 출력하라.
 
-[분류 기준]
-- 대분류: 상품의 가장 상위 개념 (예: 식품, 생활용품, 가전, 패션, 뷰티, 반려동물 등)
-- 중분류: 대분류 하위의 용도 또는 상품군
-- 소분류: 실제 상품을 가장 구체적으로 설명하는 카테고리
+[출력 규칙]
+- 반드시 태그 3개만 출력 (더도 말고 덜도 말고)
+- 각 태그는 한글이며 '#'으로 시작, 공백으로 구분
+- 설명, 줄바꿈, 쉼표, 영어, 플레이스홀더 출력 금지
+- 기존상품태그와 완전히 동일한 문자열은 사용하지 말 것"""
 
-[태그 생성 규칙]
-- 최대 3개 태그만 생성
-- 각 태그는 반드시 한글이며 '#'으로 시작
-- 태그 순서는 반드시 대분류 → 중분류 → 소분류
-- 기존 상품태그와 문자열이 완전히 동일한 태그는 생성하지 말 것
-- 의미가 유사하더라도 문자열이 다르면 생성 가능
-- 불확실한 경우 가장 일반적인 분류를 선택
+            few_shot_examples = [
+                {
+                    "role": "user",
+                    "content": "상품명: RTX 4090 그래픽카드 24GB\n상품설명: 최신 GPU 게이밍 고성능\n기존상품태그: GPU"
+                },
+                {
+                    "role": "assistant",
+                    "content": "#가전 #PC부품 #그래픽카드"
+                },
+                {
+                    "role": "user",
+                    "content": "상품명: 한돈 삼겹살 1kg 냉장\n상품설명: 국내산 돼지고기 구이용\n기존상품태그: 정육"
+                },
+                {
+                    "role": "assistant",
+                    "content": "#식품 #육류 #삼겹살"
+                },
+                {
+                    "role": "user",
+                    "content": "상품명: 나이키 에어맥스 270 운동화\n상품설명: 남성 스니커즈 러닝화\n기존상품태그: 신발"
+                },
+                {
+                    "role": "assistant",
+                    "content": "#패션 #신발 #운동화"
+                },
+                {
+                    "role": "user",
+                    "content": "상품명: 다이슨 V15 무선청소기\n상품설명: 강력 흡입 코드리스 청소기\n기존상품태그: 청소"
+                },
+                {
+                    "role": "assistant",
+                    "content": "#생활가전 #청소용품 #무선청소기"
+                },
+                {
+                    "role": "user",
+                    "content": "상품명: 설화수 자음생 크림 60ml\n상품설명: 한방 안티에이징 보습 크림\n기존상품태그: 스킨케어"
+                },
+                {
+                    "role": "assistant",
+                    "content": "#뷰티 #스킨케어 #크림"
+                },
+            ]
 
-[출력 규칙 - 매우 중요]
-- 반드시 태그만 출력할 것
-- '#대분류', '#중분류', '#소분류' 와 같은 플레이스홀더 출력 금지
-- 판단 과정, 고민, 수정 문장, 영어, 특수문자 출력 금지
-- 출력은 한 줄이며 공백으로만 구분
-- 쉼표, 줄바꿈, 설명 문장 절대 금지
+            prompt = f"상품명: {message['item_name']}\n상품설명: {message['content'][:300]}\n기존상품태그: {message['category']}"
 
-[올바른 출력 예]
-#가전 #PC부품 #그래픽카드
-#음식 #육류 #삼겹살
-"""
-
-            # GPT 프롬프트 구성
-            prompt = f"""
-[상품 정보]
-상품명: {message['item_name']}
-상품설명: {message['content']}
-기존상품태그: {message['category']}
-
-응답:
-"""
-
-            # ChatGPT API 호출
             response = await self.openai_client.chat.completions.create(
-                model="gpt-4.1-nano",
+                model="gpt-5.4-nano",
                 messages=[
                     {"role": "system", "content": system_message},
+                    *few_shot_examples,
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.5,
-                max_completion_tokens=500
+                temperature=0.2,
+                max_completion_tokens=30
             )
             logging.info(str(response))
             
