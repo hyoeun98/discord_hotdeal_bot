@@ -27,9 +27,10 @@ PIDS=()
 
 
 # 각 사이트를 백그라운드로 실행
+# stdout/stderr는 버림 — 파이썬 RotatingFileHandler가 scanner_{site}.log에 회전 기록함
 for SITE in "${SITES[@]}"; do
     echo "[$(date '+%H:%M:%S')] Starting $SITE..." >> "$LOG_DIR/scanner.log"
-    $UV_PATH run python /home/hyoeun/hotdeal_bot/scanner/scanner.py "$SITE" >> "$LOG_DIR/${SITE}.log" 2>&1 &
+    $UV_PATH run python /home/hyoeun/hotdeal_bot/scanner/scanner.py "$SITE" > /dev/null 2>&1 &
     PIDS+=($!)
 done
 

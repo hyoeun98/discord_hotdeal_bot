@@ -402,6 +402,8 @@ class HotDealBot:
         self.sqs = None
         self.channel_manager = None
         self._background_tasks = []
+        # 파싱 실패(err) 글 재시도 카운터 — 3회 실패 시 item_links에 기록해 재감지 차단
+        self._error_skip_counts = defaultdict(int)
         
     def setup_logging(self):
         """로깅 설정"""
@@ -1012,11 +1014,21 @@ class HotDealBot:
         return site_name, body
 
     def _should_skip_message(self, site_name, body):
-        if self.is_error_message(body):
-            logging.info(f"skip error message: {body}")
+        if self.is_ad_message(body):
+            # 광고는 재시도 가치가 없으므로 즉시 기록해 스캐너 재감지 차단
+            self.insert_to_item_links_table(body, site_name)
             return True
 
-        if self.is_ad_message(body):
+        if self.is_error_message(body):
+            logging.info(f"skip error message: {body}")
+            item_link = body.get("item_link")
+            if item_link and item_link != "err":
+                self._error_skip_counts[item_link] += 1
+                if self._error_skip_counts[item_link] >= 3:
+                    # 3회 연속 파싱 실패 → 영구 실패로 판단, 기록해서 재처리 루프 종료
+                    logging.info(f"giving up error message after 3 fails: {item_link}")
+                    self.insert_to_item_links_table(body, site_name)
+                    del self._error_skip_counts[item_link]
             return True
 
         if self.is_duplicated_message(site_name, body):

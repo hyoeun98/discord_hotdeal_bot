@@ -8,8 +8,6 @@ from dotenv import load_dotenv
 import yaml
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 import time
 import json
 # import stealth_requests as requests
@@ -114,10 +112,9 @@ SELECTORS = load_selectors()
 class PAGES(ABC):
     """각 Page들의 SuperClass"""
 
-    def __init__(self, driver):
+    def __init__(self):
         self.item_link_list = []
         self.trend_item_link_list = []
-        self.get_item_driver = driver
 
     def get_new_item_link(self):
         db_item_links = self.db_get_item_links()
@@ -261,28 +258,11 @@ class PAGES(ABC):
         except Exception as e:
             logger.error(f"fail pub item links {e}")
 
-def capture_and_send_screenshot(driver_or_html, site_name, is_selenium=True):
+def capture_and_send_error_html(page_source, site_name):
     """
-    Selenium 또는 BeautifulSoup HTML 기반 에러 로그 저장 및 Discord 전송
+    에러 발생 시 페이지 HTML을 Discord 전송 및 DB 저장
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    if is_selenium:
-        local_file = f"/tmp/{site_name}_{timestamp}.png"
-        driver_or_html.save_screenshot(local_file)
-
-        with open(local_file, "rb") as f:
-            files = {"file": (local_file, f, "image/png")}
-            payload = {"content": "에러 발생 스크린샷"}
-            response = requests.post(DISCORD_WEBHOOK, data=payload, files=files)
-        logger.info(f"Selenium screenshot sent: {response.status_code}")
-    
-        page_source = driver_or_html.page_source
-    
-    else:
-        page_source = driver_or_html
-        logger.info("HTML content from BS4 ready to send.")
-        response = None
 
     html_file_path = f"/tmp/{site_name}_{timestamp}.html"
     with open(html_file_path, "w", encoding="utf-8") as f:
@@ -312,10 +292,10 @@ def capture_and_send_screenshot(driver_or_html, site_name, is_selenium=True):
             conn.close()
             
 class QUASAR_ZONE(PAGES):
-    def __init__(self, driver):
+    def __init__(self):
         self.site_link = QUASAR_ZONE_LINK
         self.site_name = "QUASAR_ZONE"
-        super().__init__(driver)
+        super().__init__()
         self.selectors = SELECTORS[self.site_name]
 
     def get_merged_item_link(self, item_link):
@@ -363,14 +343,14 @@ class QUASAR_ZONE(PAGES):
                 
             except Exception as e:
                 logger.error(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
+                capture_and_send_error_html(str(soup), self.__class__.__name__)
                 break
 
 class ARCA_LIVE(PAGES):
-    def __init__(self, driver):
+    def __init__(self):
         self.site_link = ARCA_LIVE_LINK
         self.site_name = "ARCA_LIVE"
-        super().__init__(driver)
+        super().__init__()
         self.selectors = SELECTORS[self.site_name]
 
     def get_merged_item_link(self, item_link):
@@ -417,14 +397,14 @@ class ARCA_LIVE(PAGES):
                 
             except Exception as e:
                 logger.error(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
+                capture_and_send_error_html(str(soup), self.__class__.__name__)
                 break    
         
 class FM_KOREA(PAGES):
-    def __init__(self, driver):
+    def __init__(self):
         self.site_link = FM_KOREA_LINK
         self.site_name = "FM_KOREA"
-        super().__init__(driver)
+        super().__init__()
         self.selectors = SELECTORS[self.site_name]
     
     def get_merged_item_link(self, item_link):
@@ -473,14 +453,14 @@ class FM_KOREA(PAGES):
                 
             except Exception as e:
                 logger.error(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
+                capture_and_send_error_html(str(soup), self.__class__.__name__)
                 break    
     
 class PPOM_PPU(PAGES):
-    def __init__(self, driver):
+    def __init__(self):
         self.site_link = PPOM_PPU_LINK
         self.site_name = "PPOM_PPU"
-        super().__init__(driver)
+        super().__init__()
         self.selectors = SELECTORS[self.site_name]
 
     def get_merged_item_link(self, item_link):
@@ -529,14 +509,14 @@ class PPOM_PPU(PAGES):
                 
             except Exception as e:
                 logger.error(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
+                capture_and_send_error_html(str(soup), self.__class__.__name__)
                 break    
 
 class COOL_ENJOY(PAGES):
-    def __init__(self, driver):
+    def __init__(self):
         self.site_link = COOL_ENJOY_LINK
         self.site_name = "COOL_ENJOY"
-        super().__init__(driver)
+        super().__init__()
         self.selectors = SELECTORS[self.site_name]
 
     def get_comment_count(self, item):
@@ -580,14 +560,14 @@ class COOL_ENJOY(PAGES):
                 
             except Exception as e:
                 logger.error(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
+                capture_and_send_error_html(str(soup), self.__class__.__name__)
                 break
             
 class EOMI_SAE(PAGES):
-    def __init__(self, driver):
+    def __init__(self):
         self.site_link = EOMI_SAE_LINK
         self.site_name = "EOMI_SAE"
-        super().__init__(driver)
+        super().__init__()
         self.selectors = SELECTORS[self.site_name]
 
     def get_comment_count(self, item):
@@ -630,14 +610,14 @@ class EOMI_SAE(PAGES):
                 
             except Exception as e:
                 logger.error(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
+                capture_and_send_error_html(str(soup), self.__class__.__name__)
                 break
             
 class RULI_WEB(PAGES):
-    def __init__(self, driver):
+    def __init__(self):
         self.site_link = RULI_WEB_LINK
         self.site_name = "RULI_WEB"
-        super().__init__(driver)
+        super().__init__()
         self.selectors = SELECTORS[self.site_name]
 
     def get_comment_count(self, item):
@@ -679,30 +659,9 @@ class RULI_WEB(PAGES):
                 
             except Exception as e:
                 logger.error(f"fail get item links {item_link} {e}")
-                capture_and_send_screenshot(self.get_item_driver, self.__class__.__name__)
+                capture_and_send_error_html(str(soup), self.__class__.__name__)
                 break
             
-def set_driver():
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    chrome_options.add_experimental_option('useAutomationExtension', False)
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument("--single-process")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument('--blink-settings=imagesEnabled=false')
-    chrome_options.add_argument('window-size=1392x1150')
-    chrome_options.add_argument("disable-gpu")
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-    chrome_options.add_argument('--incognito')
-    
-    service = Service(executable_path="/usr/bin/chromedriver")
-    driver = webdriver.Chrome(service=service, options=chrome_options)
-    driver.implicitly_wait(10)
-    driver.set_page_load_timeout(10)
-    return driver
-        
 def main(site_name=None):
     """
     특정 사이트 이름을 인자로 받아 해당 사이트만 스캔
@@ -724,10 +683,9 @@ def main(site_name=None):
         sys.exit(1)
 
     setup_site_logger(site_name)
-    driver = set_driver()
 
     try:
-        site_instance = site_classes[site_name](driver)
+        site_instance = site_classes[site_name]()
         
         logger.info(f"[Scanner] {site_name} 스캔 시작...")
         site_instance.scanning()
@@ -760,8 +718,6 @@ def main(site_name=None):
             "timestamp": datetime.now().isoformat()
         }))
         sys.exit(1)
-    finally:
-        driver.quit()
 
     logger.info(f"✅ {site_name} scanning complete!")
 

@@ -3,8 +3,6 @@ import asyncio
 import aiohttp
 import re
 import os
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 from datetime import datetime
 from bs4 import BeautifulSoup
 import yaml
@@ -14,7 +12,6 @@ import redis.asyncio as redis
 from curl_cffi import AsyncSession
 import logging
 from logging.handlers import RotatingFileHandler
-from playwright.async_api import async_playwright
 
 # --- Logging 설정 ---
 log_dir = "/home/hyoeun/hotdeal_bot/crawler/logs"
@@ -99,46 +96,16 @@ class PAGES:
     def __init__(self):
         self.refresh_delay = 30
         self.curl_session = None
-        
-        self.playwright = None
-        self.browser = None
-        
-        # ✅ 추가: Playwright 사용 클래스들을 위한 세마포어 (QUASAR_ZONE은 Playwright 사용)
-        self.sem = asyncio.Semaphore(1)  # 단일 브라우저 처리 보장
 
     async def __aenter__(self):
-        """async context manager 진입: HTTP 세션 및 Playwright 브라우저 초기화"""
+        """async context manager 진입: HTTP 세션 초기화"""
         self.curl_session = AsyncSession()
-        
-        # ✅ 수정: 컨텍스트 진입 시 Playwright 브라우저를 초기화합니다.
-        try:
-            self.playwright = await async_playwright().start()
-            self.browser = await self.playwright.chromium.launch(
-                headless=True,
-                args=[
-                    "--disable-gpu",
-                    "--disable-dev-shm-usage",
-                    "--no-sandbox",
-                    "--single-process",
-                ],
-            )
-        except Exception:
-            logger.exception("Failed to launch Playwright browser in __aenter__")
-            
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """async context manager 종료 시 브라우저도 함께 종료"""
+        """async context manager 종료 시 세션 정리"""
         if self.curl_session:
             await self.curl_session.close()
-            
-        # [추가] 봇이 종료될 때 브라우저 닫기
-        if self.browser:
-            await self.browser.close()
-            self.browser = None # 💡 명시적 초기화
-        if self.playwright:
-            await self.playwright.stop()
-            self.playwright = None # 💡 명시적 초기화
             
     async def get_bs4_soup(self, link):
         try:
