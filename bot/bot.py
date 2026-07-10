@@ -1299,7 +1299,8 @@ class HotDealBot:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.2,
-                max_completion_tokens=30
+                max_completion_tokens=30,
+                prompt_cache_key="hotdeal-classify-tag"  # 정적 prefix 캐시 히트율 향상
             )
             logging.info(str(response))
             
