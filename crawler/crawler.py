@@ -662,7 +662,15 @@ class EOMI_SAE(PAGES):
                 
                 shopping_mall_link_selector = self.selectors.get("shopping_mall_link_selector", "")
                 shopping_mall_link_elem = soup.select_one(shopping_mall_link_selector)
-                shopping_mall_link = shopping_mall_link_elem.text if shopping_mall_link_elem else "err"
+                if shopping_mall_link_elem:
+                    # 표시 텍스트는 중략(...)될 수 있으므로 href 속성을 우선 사용
+                    if shopping_mall_link_elem.has_attr("href"):
+                        link_anchor = shopping_mall_link_elem
+                    else:
+                        link_anchor = shopping_mall_link_elem.select_one("a[href]")
+                    shopping_mall_link = link_anchor["href"] if link_anchor else shopping_mall_link_elem.get_text(strip=True)
+                else:
+                    shopping_mall_link = "err"
 
             except Exception as e:
                 logger.error(f"❌ {self.site_name} fail: {item_link} - {str(e)}")
