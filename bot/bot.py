@@ -860,6 +860,14 @@ class HotDealBot:
             return True
         else:
             return False
+
+    def is_ad_message(self, body):
+        # 유료 광고 글 필터 (어미새 등)
+        content = body.get("content", "") or ""
+        if "유료 광고를 포함" in content:
+            logging.info(f"Skip ad message: {body.get('item_name')} / {body.get('item_link')}")
+            return True
+        return False
         
     def is_duplicated_message(self, site_name, body):
         # 중복 체크
@@ -1006,6 +1014,9 @@ class HotDealBot:
     def _should_skip_message(self, site_name, body):
         if self.is_error_message(body):
             logging.info(f"skip error message: {body}")
+            return True
+
+        if self.is_ad_message(body):
             return True
 
         if self.is_duplicated_message(site_name, body):
