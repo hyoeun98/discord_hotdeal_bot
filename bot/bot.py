@@ -10,7 +10,7 @@ from discord.ext import commands
 import asyncio
 from collections import defaultdict
 import psycopg2
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, APITimeoutError, RateLimitError
 import pendulum
 import redis.asyncio as redis
 from datetime import timedelta, timezone
@@ -1190,7 +1190,7 @@ RTX 4090 그래픽카드 24GB → #디지털 #PC부품 #그래픽카드
 
             prompt = f"상품명: {message['item_name']}\n상품설명: {message['content'][:300]}\n기존상품태그: {message['category']}"
 
-            response = await self.openai_client.chat.completions.create(
+            request_kwargs = dict(
                 model="gpt-5.4-nano",
                 messages=[
                     {"role": "system", "content": system_message},
@@ -1198,8 +1198,18 @@ RTX 4090 그래픽카드 24GB → #디지털 #PC부품 #그래픽카드
                 ],
                 temperature=0.2,
                 max_completion_tokens=30,
-                prompt_cache_key="hotdeal-classify-tag"  # 모델이 캐싱 지원 시 자동 이득
+                prompt_cache_key="hotdeal-classify-tag",  # 모델이 캐싱 지원 시 자동 이득
             )
+
+            try:
+                # flex tier: 요금 50% 할인, 대신 지연/거부 가능
+                # 10초 내 응답 없으면 일반 티어로 즉시 재시도 → 최악의 지연을 +10초로 제한
+                response = await self.openai_client.with_options(timeout=10.0).chat.completions.create(
+                    service_tier="flex", **request_kwargs
+                )
+            except (APITimeoutError, RateLimitError) as e:
+                logging.info(f"Flex tier failed ({type(e).__name__}), falling back to standard tier")
+                response = await self.openai_client.chat.completions.create(**request_kwargs)
             logging.info(str(response))
             
             # 응답에서 태그 추출
