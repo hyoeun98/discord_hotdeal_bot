@@ -1170,6 +1170,7 @@ class HotDealBot:
 - 1번째=대분류(식품/가전/디지털/패션/생활용품/뷰티/게임/반려동물/도서/스포츠 등), 2번째=중분류(상품군), 3번째=소분류(구체적 상품명)
 - 일반 → 구체로 좁혀지는 구조. 같은 단어/유사 변형 반복 금지 (#양파 #5kg #양파100원딜 X)
 - 메인 상품만 태그: 세트의 사이드/사은품/구성재료 제외 (치킨+콜라→치킨, 부대찌개 햄 4종→부대찌개)
+- 여러 상품이 나열된 글이어도 태그는 한 세트(3개)만: 공통 카테고리 또는 대표 상품 기준. 상품별로 세트를 반복 생성하지 말 것
 - 상품명/본문에서 확인되는 정보만 사용, 추측 금지. 한글 브랜드명을 영어 발음으로 해석하지 말 것 (스파클=브랜드명, 탄산 아님). 모호하면 안전한 상위 카테고리 사용
 - 금지: 가격/할인(100원딜,특가), 수량/용량(5kg,10캔세트), 배송/결제(무배,페이코딜), 시간성(기한임박), 어색한 합성어(대용량햄세트)
 - 각 태그는 한글, '#'시작, 공백 구분. 설명/줄바꿈/쉼표 금지. 기존상품태그와 동일 문자열 금지
@@ -1186,6 +1187,7 @@ RTX 4090 그래픽카드 24GB → #디지털 #PC부품 #그래픽카드
 멕시카나 후라이드 + 콜라1.25L → #식품 #치킨 #후라이드치킨
 의정부식 1960 부대찌개 햄 4종 700g X 2개 → #식품 #밀키트 #부대찌개
 스파클 생수 2L 36통 → #식품 #생수 #무라벨생수
+교촌 레드, 노랑통닭 3종, BBQ 황올 순살 → #식품 #치킨 #순살치킨
 페이퍼어스 폴럭 (정보 부족) → #디지털 #잡화 #신상품"""
 
             prompt = f"상품명: {message['item_name']}\n상품설명: {message['content'][:300]}\n기존상품태그: {message['category']}"
@@ -1212,8 +1214,13 @@ RTX 4090 그래픽카드 24GB → #디지털 #PC부품 #그래픽카드
                 response = await self.openai_client.chat.completions.create(**request_kwargs)
             logging.info(str(response))
             
-            # 응답에서 태그 추출
-            tags = response.choices[0].message.content.strip()
+            # 응답에서 태그 추출 — 모델이 여러 세트를 반복 생성해도 첫 줄의 앞 3개만 사용
+            raw = response.choices[0].message.content.strip()
+            first_line = raw.split("\n")[0]
+            tag_tokens = [t for t in first_line.split() if t.startswith("#")][:3]
+            tags = " ".join(tag_tokens) if tag_tokens else "#기타"
+            if tags != raw:
+                logging.info(f"Tag output normalized: {raw!r} -> {tags!r}")
             logging.info(f"Generated tags for {message['item_name']}: {tags}")
             return tags
 
