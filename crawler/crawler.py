@@ -465,15 +465,23 @@ class PPOM_PPU(PAGES):
                     category,
                 ) = "err", "err", "err", "err", "err", "err", "err", "err"
                 
-                item_name = soup.select_one(self.selectors["item_name_css"]).text
+                title = soup.select_one(self.selectors["item_name_css"])
+                if title is None:
+                    raise ValueError("상품 제목 요소를 찾을 수 없음")
+                item_name = title.get_text(" ", strip=True)
                 if not re.search(r"[가-힣a-zA-Z]", item_name):
                     raise ValueError(f"유효하지 않은 상품명: {item_name}, {item_link}")
                 content = soup.select_one(self.selectors["content_selector"]).get_text(strip=True)
-                comment = [i.get_text(strip=True) for i in soup.select(self.selectors["comment_id"])]
-                    
-                created_at = soup.select_one(self.selectors["created_at_selector"]).text.lstrip("등록일 ")
-                shopping_mall_link = soup.select_one(self.selectors["shopping_mall_link_selector"]).text
-                shopping_mall = soup.select_one(self.selectors["shopping_mall_selector"]).text
+                date_element = soup.select_one(self.selectors["created_at_selector"])
+                if date_element is None:
+                    raise ValueError("등록일 요소를 찾을 수 없음")
+                created_at = date_element.get_text(strip=True).removeprefix("등록일").strip()
+                link_element = soup.select_one(self.selectors["shopping_mall_link_selector"])
+                if link_element is not None:
+                    shopping_mall_link = link_element.get_text(strip=True) or link_element.get("href", "err")
+                mall_element = soup.select_one(self.selectors["shopping_mall_selector"])
+                if mall_element is not None:
+                    shopping_mall = mall_element.get_text(strip=True)
                 item_name = re.sub(r"^\[[^]]*\]\s*", "", item_name, count=1)
                 
             except Exception as e:

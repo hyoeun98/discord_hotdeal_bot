@@ -1193,7 +1193,7 @@ RTX 4090 그래픽카드 24GB → #디지털 #PC부품 #그래픽카드
             prompt = f"상품명: {message['item_name']}\n상품설명: {message['content'][:300]}\n기존상품태그: {message['category']}"
 
             request_kwargs = dict(
-                model="gpt-5.4-nano",
+                model="gpt-6-luna",
                 messages=[
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": prompt}

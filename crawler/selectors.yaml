@@ -37,12 +37,12 @@ FM_KOREA:
 
 PPOM_PPU:
   crawling_selectors:
-    item_name_css: "#topTitle > h1"
+    item_name_css: "#topTitle h1"
     content_selector: "td.han"
     comment_id: "div.mid-text-area"
-    created_at_selector: "#topTitle > div > ul > li:nth-child(2)"
-    shopping_mall_link_selector: "#topTitle > div > ul > li.topTitle-link > a"
-    shopping_mall_selector: "#topTitle > h1 > span.subject_preface.type2"
+    created_at_selector: "#topTitle .topTitle-mainbox > li:nth-child(2)"
+    shopping_mall_link_selector: "#topTitle .topTitle-link > a"
+    shopping_mall_selector: "#topTitle h1 > span.subject_preface.type2"
 COOL_ENJOY:
   crawling_selectors:
     title_text_selector: '#bo_v_title'
